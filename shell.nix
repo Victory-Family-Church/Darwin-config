@@ -31,7 +31,8 @@ pkgs.mkShell {
     export PATH="${toString scriptsDir}:$PATH"
 
     echo "nc-production-nix-darwin dev shell"
-    echo "  update-packages sync                 # or: update_packages.py sync"
+    echo "  update-packages list-all              # or: update_packages.py list-all"
+    echo "  update-packages sync"
     echo "  update-packages pkg add|update|info|delete|revert ..."
   '';
 }

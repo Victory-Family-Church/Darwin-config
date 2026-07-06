@@ -168,10 +168,23 @@ Settings > Accounts > Add Account, using the Main Pro mailbox credentials.
 
 ## Managing packages
 
-`scripts/update_packages.py` has two layers: `sync` for bulk updates, and
-`pkg <add|update|info|delete|revert>` for working on one package at a time.
-Run `python3 scripts/update_packages.py --help` or `... pkg <subcommand> --help`
-for the full option list.
+`scripts/update_packages.py` has three layers: `sync` for bulk updates,
+`list-all` for a fleet-wide overview, and `pkg <add|update|info|delete|revert>`
+for working on one package at a time. Run `python3 scripts/update_packages.py --help`
+or `... pkg <subcommand> --help` for the full option list.
+
+`nix-shell` (see `shell.nix`) puts both `update-packages` and
+`update_packages.py` on `PATH`, so you can drop the `python3 scripts/` part
+and run e.g. `update-packages list-all` from anywhere in the repo.
+
+### See everything at a glance
+
+```sh
+python3 scripts/update_packages.py list-all
+```
+
+Prints every package's kind/version/update-strategy in one table, and
+flags anything still sitting at the `REPLACE_ME` placeholder.
 
 ### Bulk update everything
 

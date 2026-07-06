@@ -8,6 +8,10 @@ Bulk update everything with an automatic strategy:
     python3 scripts/update_packages.py sync
     python3 scripts/update_packages.py sync --dry-run
 
+List every package (name, kind, version, strategy, and whether it still
+needs a manual URL):
+    python3 scripts/update_packages.py list-all
+
 Manage one package at a time:
     python3 scripts/update_packages.py pkg add <name> <kind> <version> <url> [options]
     python3 scripts/update_packages.py pkg update <name> [version] [url]
@@ -373,6 +377,40 @@ def cmd_sync(args):
         print("\nNo changes.")
 
 
+def cmd_list_all(args):
+    manifest = load_manifest()
+    packages = manifest["packages"]
+    if not packages:
+        print("packages.json has no packages.")
+        return
+
+    name_w = max(len("NAME"), max(len(p["name"]) for p in packages))
+    kind_w = max(len("KIND"), max(len(p["kind"]) for p in packages))
+    version_w = max(len("VERSION"), max(len(p["version"]) for p in packages))
+    strategy_w = max(len("STRATEGY"), max(len(p["update"]["strategy"]) for p in packages))
+
+    def row(name, kind, version, strategy, note):
+        return f"{name:<{name_w}}  {kind:<{kind_w}}  {version:<{version_w}}  {strategy:<{strategy_w}}  {note}"
+
+    header = row("NAME", "KIND", "VERSION", "STRATEGY", "NOTE")
+    print(header)
+    print("-" * len(header))
+
+    manual_count = 0
+    placeholder_count = 0
+    for p in sorted(packages, key=lambda p: p["name"]):
+        strategy = p["update"]["strategy"]
+        is_placeholder = p.get("url") == "REPLACE_ME" or p["version"] == "REPLACE_ME"
+        if strategy == "manual":
+            manual_count += 1
+        if is_placeholder:
+            placeholder_count += 1
+        note = "NEEDS pkg update <name> <url>" if is_placeholder else ("manual" if strategy == "manual" else "")
+        print(row(p["name"], p["kind"], p["version"], strategy, note))
+
+    print(f"\n{len(packages)} packages -- {manual_count} manual-strategy, {placeholder_count} still REPLACE_ME.")
+
+
 # ---------------------------------------------------------------------------
 # `pkg add|update|info|delete|revert`
 # ---------------------------------------------------------------------------
@@ -595,6 +633,11 @@ def build_parser():
     p_sync = top.add_parser("sync", help="bulk-update every package with an automatic strategy")
     p_sync.add_argument("--dry-run", action="store_true", help="show what would change without writing")
     p_sync.set_defaults(func=cmd_sync)
+
+    p_list_all = top.add_parser(
+        "list-all", help="list every package in packages.json with kind/version/strategy"
+    )
+    p_list_all.set_defaults(func=cmd_list_all)
 
     p_pkg = top.add_parser("pkg", help="add/update/inspect/delete/revert a single package")
     pkg_sub = p_pkg.add_subparsers(dest="pkg_command", required=True)
