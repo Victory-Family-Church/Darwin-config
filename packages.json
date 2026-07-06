@@ -1,0 +1,175 @@
+{
+  "_comment": "Single source of truth for every non-nixpkgs macOS app installed on the NC production Macs. Consumed by overlays/production-apps.nix (builtins.fromJSON) and kept up to date by scripts/update_packages.py. Do not hand-edit version/url/sha256 for 'auto' packages -- run the script instead.",
+
+  "packages": [
+    {
+      "name": "propresenter",
+      "kind": "zip",
+      "appName": "ProPresenter.app",
+      "version": "21.4,352583705",
+      "url": "https://renewedvision.com/downloads/propresenter/mac/ProPresenter_21.4_352583705.zip",
+      "sha256": "a428409c5a59c0e1f0ced0d8788d521c75672fadd50ec15e20992a1fffbd4b9d",
+      "homepage": "https://renewedvision.com/propresenter/",
+      "update": { "strategy": "propresenter" }
+    },
+    {
+      "name": "microsoft-word",
+      "kind": "pkg",
+      "pkgId": "com.microsoft.package.Microsoft_Word.app",
+      "version": "16.110.26062818",
+      "url": "https://res.public.onecdn.static.microsoft/mro1cdnstorage/C1297A47-86C4-4C1F-97FA-950631F94777/MacAutoupdate/Microsoft_Word_16.110.26062818_Installer.pkg",
+      "sha256": "c7836b4b3f9de8e1ca4ad76b8f2807fe39031406944fd5fde6d1568d0d5de2d8",
+      "homepage": "https://www.microsoft.com/en-US/microsoft-365/word",
+      "update": { "strategy": "ms_office_fwlink", "linkid": "525134", "filenamePrefix": "Microsoft_Word_" }
+    },
+    {
+      "name": "microsoft-powerpoint",
+      "kind": "pkg",
+      "pkgId": "com.microsoft.package.Microsoft_PowerPoint.app",
+      "version": "16.110.26062818",
+      "url": "https://res.public.onecdn.static.microsoft/mro1cdnstorage/C1297A47-86C4-4C1F-97FA-950631F94777/MacAutoupdate/Microsoft_PowerPoint_16.110.26062818_Installer.pkg",
+      "sha256": "170c3735400237cae5cc3afd6476b194717458a799b8461d22554389b918dfc0",
+      "homepage": "https://www.microsoft.com/en-US/microsoft-365/powerpoint",
+      "update": { "strategy": "ms_office_fwlink", "linkid": "525136", "filenamePrefix": "Microsoft_PowerPoint_" }
+    },
+    {
+      "name": "dropbox",
+      "kind": "dmg",
+      "appName": "Dropbox.app",
+      "version": "258.4.3749",
+      "url": "https://edge.dropboxstatic.com/dbx-releng/client/Dropbox%20258.4.3749.arm64.dmg",
+      "sha256": "ea96c12c0a0a7ea37070e5a69d92d415945bc490beaf43f348e33384efc6f0eb",
+      "homepage": "https://www.dropbox.com/",
+      "update": { "strategy": "dropbox" }
+    },
+    {
+      "name": "spotify",
+      "kind": "dmg",
+      "appName": "Spotify.app",
+      "version": "1.2.90.451",
+      "url": "https://download.scdn.co/SpotifyARM64.dmg",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.spotify.com/",
+      "update": { "strategy": "spotify" },
+      "note": "Spotify ships an unversioned rolling download with no vendor-published hash (Homebrew marks it sha256 :no_check). The updater downloads the current build and hashes it directly; version stays best-effort."
+    },
+    {
+      "name": "reaper",
+      "kind": "dmg",
+      "appName": "REAPER.app",
+      "version": "7.76",
+      "url": "https://dlcf.reaper.fm/7.x/reaper776_universal.dmg",
+      "sha256": "ee518c4915dac12f3f21208f2e3525426c6a5bfa50cb7896be233ed9f67a2d27",
+      "homepage": "https://www.reaper.fm/",
+      "update": { "strategy": "reaper" }
+    },
+    {
+      "name": "wireless-workbench",
+      "kind": "pkg",
+      "pkgId": "com.shure.WWB",
+      "version": "7.8.1,56",
+      "url": "https://content-files.shure.com/Software/wireless-workbench/7-8-1/Wireless-Workbench-macOS-7.8.1.56.pkg",
+      "sha256": "d543614acf0b8a9293dae4859f8ccd73f7eace9e92c8d34ba7ab1ab6353959fe",
+      "homepage": "https://www.shure.com/en-US/products/software/wwb?variant=WWB",
+      "update": { "strategy": "wireless_workbench" }
+    },
+    {
+      "name": "dante-controller",
+      "kind": "pkg",
+      "pkgId": "com.audinate.dante.pkg.DanteController",
+      "version": "4.18.0.11",
+      "url": "https://audinate-software-updates.sgp1.cdn.digitaloceanspaces.com/DanteController/4/4.18/apple_silicon/DanteController-4.18.0.11-macos-arm64.dmg",
+      "sha256": "e5c1aee5e0a1d594e54b5249a5ab4c34cc1129a8c2828e7fff81645214274070",
+      "homepage": "https://www.getdante.com/products/software-essentials/dante-controller/",
+      "note": "Upstream ships this as a .dmg containing DanteController.pkg, not a bare .pkg -- see kind override handling in lib/mac-apps.nix (dmgContainsPkg).",
+      "kindDetail": "dmgContainsPkg",
+      "update": { "strategy": "dante_controller" }
+    },
+    {
+      "name": "tailscale",
+      "kind": "pkg",
+      "pkgId": "com.tailscale.ipn.macsys",
+      "version": "1.98.8",
+      "url": "https://pkgs.tailscale.com/stable/Tailscale-1.98.8-macos.pkg",
+      "sha256": "140090acbc9911967bff294572656f3b367c395be85e8427ee2249d412279864",
+      "homepage": "https://tailscale.com/",
+      "update": { "strategy": "sparkle_appcast", "appcastUrl": "https://pkgs.tailscale.com/stable/appcast.xml", "urlTemplate": "https://pkgs.tailscale.com/stable/Tailscale-{version}-macos.pkg" }
+    },
+    {
+      "name": "teamviewer",
+      "kind": "pkg",
+      "pkgId": "com.teamviewer.teamviewer.preferencepane",
+      "version": "15.79.4",
+      "url": "https://dl.teamviewer.com/download/version_15x/update/15.79.4/TeamViewer.pkg",
+      "sha256": "beff41a4941da37479bc8c7b6fed0e8a4fee08eb7773f1c868f7af9e063f16ab",
+      "homepage": "https://www.teamviewer.com/",
+      "update": { "strategy": "teamviewer" }
+    },
+    {
+      "name": "blackmagic-desktop-video",
+      "kind": "pkg",
+      "pkgId": "com.blackmagic-design.DesktopVideo",
+      "version": "REPLACE_ME",
+      "url": "REPLACE_ME",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.blackmagicdesign.com/support/family/capture-and-playback",
+      "note": "Blackmagic's download portal is a JS product picker with no stable versioned URL we could resolve automatically. Download Desktop Video for macOS manually, then run: python3 scripts/update_packages.py --manual blackmagic-desktop-video <url-to-the-.dmg-or-.pkg>",
+      "update": { "strategy": "manual" }
+    },
+    {
+      "name": "atem-software-control",
+      "kind": "pkg",
+      "pkgId": "com.blackmagic-design.ATEMSoftwareControl",
+      "version": "REPLACE_ME",
+      "url": "REPLACE_ME",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers",
+      "note": "Same manual-download situation as blackmagic-desktop-video -- part of the 'Blackmagic ATEM Switchers' installer suite. Fill in with scripts/update_packages.py --manual atem-software-control <url>.",
+      "update": { "strategy": "manual" }
+    },
+    {
+      "name": "dante-virtual-soundcard",
+      "kind": "pkg",
+      "pkgId": "com.audinate.dante.pkg.DanteVirtualSoundcard",
+      "version": "REPLACE_ME",
+      "url": "REPLACE_ME",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.getdante.com/products/software-essentials/dante-virtual-soundcard/",
+      "note": "Dante Virtual Soundcard requires a purchased license tied to an Audinate account, so there is no public direct-download URL. Fill in with scripts/update_packages.py --manual dante-virtual-soundcard <url>.",
+      "update": { "strategy": "manual" }
+    },
+    {
+      "name": "klang-fabrik",
+      "kind": "pkg",
+      "pkgId": "com.klang.fabrik",
+      "version": "REPLACE_ME",
+      "url": "REPLACE_ME",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.klang.com/",
+      "note": "Klang does not publish Klang:fabrik through a discoverable stable URL or Homebrew cask. Fill in with scripts/update_packages.py pkg update klang-fabrik <url> after downloading from your Klang account.",
+      "update": { "strategy": "manual" }
+    },
+    {
+      "name": "grandma3-onpc",
+      "kind": "pkg",
+      "pkgId": "com.malighting.grandma3onpc",
+      "version": "REPLACE_ME",
+      "url": "REPLACE_ME",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "homepage": "https://www.malighting.com/downloads/products/grandma3/",
+      "note": "malighting.com/downloads is a JS product picker with no stable/versioned URL to poll, and grandMA3 onPC may be gated behind an MA account depending on release channel. Download the macOS grandMA3 onPC installer manually, then run: python3 scripts/update_packages.py pkg update grandma3-onpc <url>. pkgId above is a guess -- after the first manual install, run `pkgutil --pkgs | grep -i grandma` (or `malighting`) on the Mac and fix pkgId in this file if it doesn't match, otherwise the activation script's install-once check in modules/mac-app-activation.nix will never consider it already installed. If MA actually ships this as a .dmg/.app instead of a .pkg, change \"kind\" to \"dmg\" and add an \"appName\" field instead of pkgId.",
+      "update": { "strategy": "manual" }
+    },
+    {
+      "name": "desktoppr",
+      "kind": "pkg",
+      "pkgId": "com.scriptingosx.desktoppr",
+      "version": "0.5-218",
+      "url": "https://github.com/scriptingosx/desktoppr/releases/download/v0.5/desktoppr-0.5-218.pkg",
+      "sha256": "1cfb67d7023bc6bc7b1e3c8ccf5c891a1bad22876df77f3fbc77d27877cc7b9d",
+      "homepage": "https://github.com/scriptingosx/desktoppr",
+      "note": "CLI tool that sets the desktop picture reliably from a LaunchAgent (osascript/System Events routinely no-ops when run from a non-interactive activation script). Installs to /usr/local/bin/desktoppr. Used by modules/wallpaper.nix.",
+      "update": { "strategy": "github_release", "repo": "scriptingosx/desktoppr", "assetPattern": "\\.pkg$" }
+    }
+  ]
+}
