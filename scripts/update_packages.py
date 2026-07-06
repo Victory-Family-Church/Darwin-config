@@ -415,10 +415,11 @@ def cmd_list_all(args):
             local_count += 1
         if is_placeholder:
             placeholder_count += 1
-        if is_placeholder:
+        if strategy == "manual-local":
+            where = p.get("localPath", "?")
+            note = f"NEEDS {where} (see vendor/README.md)" if is_placeholder else f"local: {where}"
+        elif is_placeholder:
             note = "NEEDS pkg update <name> <url>"
-        elif strategy == "manual-local":
-            note = f"local: {p.get('localPath', '?')}"
         elif strategy == "manual":
             note = "manual"
         else:

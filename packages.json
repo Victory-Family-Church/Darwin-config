@@ -108,35 +108,35 @@
     {
       "name": "blackmagic-desktop-video",
       "kind": "pkg",
+      "kindDetail": "local",
       "pkgId": "com.blackmagic-design.DesktopVideo",
       "version": "REPLACE_ME",
-      "url": "REPLACE_ME",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "localPath": "vendor/blackmagic-desktop-video.pkg",
       "homepage": "https://www.blackmagicdesign.com/support/family/capture-and-playback",
-      "note": "Blackmagic's download portal is a JS product picker with no stable versioned URL we could resolve automatically. Download Desktop Video for macOS manually, then run: python3 scripts/update_packages.py --manual blackmagic-desktop-video <url-to-the-.dmg-or-.pkg>",
-      "update": { "strategy": "manual" }
+      "note": "Blackmagic's download portal is a JS product picker with no stable versioned URL to poll, so this is checked into the repo like grandma3-onpc rather than fetched. Blackmagic typically ships this as a .dmg containing the real installer .pkg -- extract that .pkg (e.g. `undmg` locally, or just mount the dmg in Finder) and save *only the .pkg* at vendor/blackmagic-desktop-video.pkg; the raw .dmg is gitignored on purpose so it never gets committed. See vendor/README.md.",
+      "update": { "strategy": "manual-local" }
     },
     {
       "name": "atem-software-control",
       "kind": "pkg",
+      "kindDetail": "local",
       "pkgId": "com.blackmagic-design.ATEMSoftwareControl",
       "version": "REPLACE_ME",
-      "url": "REPLACE_ME",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "localPath": "vendor/atem-software-control.pkg",
       "homepage": "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers",
-      "note": "Same manual-download situation as blackmagic-desktop-video -- part of the 'Blackmagic ATEM Switchers' installer suite. Fill in with scripts/update_packages.py --manual atem-software-control <url>.",
-      "update": { "strategy": "manual" }
+      "note": "Same situation as blackmagic-desktop-video -- part of the 'Blackmagic ATEM Switchers' installer suite, checked into the repo instead of fetched. Extract the .pkg out of whatever .dmg Blackmagic ships and save it at vendor/atem-software-control.pkg (the raw .dmg is gitignored). See vendor/README.md.",
+      "update": { "strategy": "manual-local" }
     },
     {
       "name": "dante-virtual-soundcard",
       "kind": "pkg",
+      "kindDetail": "local",
       "pkgId": "com.audinate.dante.pkg.DanteVirtualSoundcard",
       "version": "REPLACE_ME",
-      "url": "REPLACE_ME",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "localPath": "vendor/dante-virtual-soundcard.pkg",
       "homepage": "https://www.getdante.com/products/software-essentials/dante-virtual-soundcard/",
-      "note": "Dante Virtual Soundcard requires a purchased license tied to an Audinate account, so there is no public direct-download URL. Fill in with scripts/update_packages.py --manual dante-virtual-soundcard <url>.",
-      "update": { "strategy": "manual" }
+      "note": "Dante Virtual Soundcard requires a purchased license tied to an Audinate account, so there is no public direct-download URL -- checked into the repo instead of fetched, same as dante-controller's dmg-wraps-a-pkg situation but done by hand. Extract the .pkg out of the .dmg Audinate ships and save it at vendor/dante-virtual-soundcard.pkg (the raw .dmg is gitignored). See vendor/README.md.",
+      "update": { "strategy": "manual-local" }
     },
     {
       "name": "klang-app",

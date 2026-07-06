@@ -3,3 +3,11 @@ __pycache__/
 .DS_Store
 result
 result-*
+
+# Raw vendor .dmg downloads never belong in git -- for manual-local
+# packages (see vendor/README.md) extract the real installer (.pkg/.app)
+# out of the .dmg first and only commit that. This also stops someone's
+# browser download from accidentally landing in the repo and getting
+# staged by `git add -A`.
+*.dmg
+*.pkg

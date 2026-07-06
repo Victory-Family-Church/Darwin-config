@@ -122,37 +122,31 @@ cd ~/nc-production-nix-darwin
 sudo darwin-rebuild switch --flake .#NC-Production-Main-CG-1   # or -CG-2 / -CG-3 / NextGen-CG-1
 ```
 
-**3. Fill in the remaining placeholder packages.** Run
-`python3 scripts/update_packages.py list-all` to see exactly which ones
-still say `REPLACE_ME` -- currently `blackmagic-desktop-video`,
-`atem-software-control`, and `dante-virtual-soundcard` (no stable,
-publicly-discoverable download URL: vendor product picker / license-gated
-account). **The build will fail until you fix these** for any host that
-needs them (all 4 hosts need the two Blackmagic packages; CG-2/FOH also
-needs DVS). Download each installer manually from the vendor once, then
-run:
+**3. Fill in the 4 `manual-local` packages.** Run
+`python3 scripts/update_packages.py list-all` to see them --
+`blackmagic-desktop-video`, `atem-software-control`,
+`dante-virtual-soundcard`, and `grandma3-onpc` all have no stable,
+fetchable URL (vendor product picker, license-gated account, or -- for
+grandMA3 -- an access-token URL tied to your session that would break the
+next time Nix re-fetches it on a new machine). So none of these are
+downloaded by `fetchurl` at all: the actual installer is checked into the
+repo at `vendor/<name>.pkg`. **The build will fail until you do this** for
+any host that needs them (all 4 hosts need the two Blackmagic packages;
+CG-2/FOH also needs DVS; CG-3/lighting needs grandMA3 onPC).
 
-```sh
-python3 scripts/update_packages.py pkg update blackmagic-desktop-video <url-you-got>
-python3 scripts/update_packages.py pkg update atem-software-control <url-you-got>
-python3 scripts/update_packages.py pkg update dante-virtual-soundcard <url-you-got>
-```
+For each one: download it from the vendor, extract the real `.pkg` if it
+came wrapped in a `.dmg` (Blackmagic and Audinate both ship that way --
+the raw `.dmg` is gitignored on purpose, only the extracted `.pkg` gets
+committed), save it at the path named in `packages.json`'s `"localPath"`
+field, `git add` it, and set `"version"` by hand. Full walkthrough,
+including a licensing note about checking in someone else's proprietary
+installer, is in `vendor/README.md`.
 
-This downloads the file, computes its sha256, and writes the real
-version/url/hash into `packages.json` for you.
-
-`grandma3-onpc` (CG-3/lighting) is a different case: MA Lighting's
-download is gated behind an access-token URL tied to your account session,
-which won't survive being stored in `packages.json` and re-fetched later.
-Instead, it's checked into the repo directly -- download it once, save it
-at `vendor/grandma3-onpc.pkg`, `git add` it, and set `"version"` in
-`packages.json` by hand. Full details, including a licensing note about
-checking in a vendor's proprietary installer, are in `vendor/README.md`.
-After the first manual install, also run `pkgutil --pkgs | grep -i grandma`
-on that Mac and make sure it matches `pkgId` in `packages.json` (currently
-a guess, `com.malighting.grandma3onpc`) -- otherwise the activation
-script's "already installed?" check never matches and it reinstalls every
-`darwin-rebuild switch`.
+After the first manual install on each Mac, also run
+`pkgutil --pkgs | grep -i <vendor>` and make sure it matches `pkgId` in
+`packages.json` for that package (the ones there are best-guess
+placeholders) -- otherwise the activation script's "already installed?"
+check never matches and it reinstalls every `darwin-rebuild switch`.
 
 **4. Set account passwords + enable autologin.** Nix intentionally can't set
 macOS login passwords (no plaintext secrets belong in the Nix store), so
@@ -205,10 +199,12 @@ REAPER, Wireless Workbench, Dante Controller, Tailscale, TeamViewer,
 desktoppr) have an automatic strategy that polls the vendor's own
 update-check endpoint, downloads the new build, and rewrites
 `packages.json` with the new version/url/sha256. `sync` skips
-`"manual"`-strategy packages (see step 3 above) -- those need
-`pkg update <name> <url>` each time the vendor ships an update, since
-there's no feed to poll -- and skips `"manual-local"` packages
-(`grandma3-onpc`) entirely, since those aren't fetched by URL at all (see
+`"manual"`-strategy packages (currently just `klang-app`, which has a real
+URL but no feed to poll for new versions) -- those need
+`pkg update <name> <url>` each time the vendor ships an update -- and
+skips `"manual-local"` packages entirely (`blackmagic-desktop-video`,
+`atem-software-control`, `dante-virtual-soundcard`, `grandma3-onpc`),
+since those aren't fetched by URL at all (see step 3 and
 `vendor/README.md`). `list-all` shows you which is which. Review the diff
 (`git diff packages.json`) before committing -- especially for Microsoft
 Office and Wireless Workbench, whose installers make system-level changes.
