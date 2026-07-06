@@ -606,7 +606,16 @@ def update_manual_local(manifest, pkg, version):
     pkg["localSha256"] = new_hash
     save_manifest(manifest)
     print(f"updated '{pkg['name']}': {old_version} -> {version}  (localSha256={new_hash[:12]}...)")
-    print(f"Don't forget to `git add {pkg['localPath']}` if you haven't already.")
+    # NB: `local_path` (ROOT / pkg["localPath"]) is always absolute -- ROOT
+    # itself is absolute, so that alone can't tell "external" apart from
+    # "local". Check the *original* string instead.
+    if pkg["localPath"].startswith("/"):
+        print(
+            f"{pkg['localPath']} is an external path -- not part of git, nothing to add/commit "
+            f"there. Just don't forget to `git add packages.json` for this version/hash update."
+        )
+    else:
+        print(f"Don't forget to `git add {pkg['localPath']}` if you haven't already.")
 
 
 def cmd_pkg_update(args):

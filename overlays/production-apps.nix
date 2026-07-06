@@ -137,6 +137,22 @@ let
         inherit (entry) version url sha256;
       };
     }
+    else if entry.kind == "pkg" && (entry.kindDetail or null) == "externalDmgContainsPkg" then {
+      # e.g. Blackmagic Desktop Video / ATEM Software Control: both ship as
+      # a plain .dmg wrapping the real installer .pkg. Placed at a fixed
+      # external path as the *raw .dmg* (see vendor/README.md) -- no manual
+      # extraction step needed, Nix pulls the .pkg out of it at build time
+      # via mkPkgFromLocalDmg, same technique as the URL-fetched
+      # dmgContainsPkg case (dante-controller) just sourced externally.
+      type = "pkg";
+      version = entry.version;
+      pkgId = entry.pkgId;
+      src = mac.mkPkgFromLocalDmg final {
+        pname = entry.name;
+        inherit (entry) version;
+        src = externalSrc entry;
+      };
+    }
     else if entry.kind == "pkg" && (entry.kindDetail or null) == "local" then {
       # A .pkg checked into the repo (small enough for git). Nothing
       # currently in packages.json uses this -- see "external" below.

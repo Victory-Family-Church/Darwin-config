@@ -180,4 +180,41 @@ rec {
 
       meta.platforms = pkgs.lib.platforms.darwin;
     };
+
+  # Same idea as mkPkgFromDmg, but for a .dmg that's checked into the repo
+  # or (more commonly, given the sizes involved) placed at a fixed external
+  # path instead of fetched by URL -- `src` is a plain path/string already
+  # resolved by the overlay's localSrc/externalSrc, not a fetchurl call.
+  # This is what Blackmagic Desktop Video and ATEM Software Control use:
+  # both ship as a plain .dmg wrapping the real installer .pkg, so you only
+  # need to place the raw .dmg at its fixed path (see vendor/README.md) --
+  # Nix extracts the .pkg out of it at build/activation time, no manual
+  # `undmg`/Finder step needed.
+  mkPkgFromLocalDmg = pkgs:
+    { pname
+    , version
+    , src
+    }:
+    pkgs.stdenvNoCC.mkDerivation {
+      inherit pname version src;
+      nativeBuildInputs = [ pkgs.undmg ];
+      sourceRoot = ".";
+      dontConfigure = true;
+      dontBuild = true;
+
+      installPhase = ''
+        runHook preInstall
+        mkdir -p "$out"
+        pkgFile="$(find . -maxdepth 2 -iname '*.pkg' -print -quit)"
+        if [ -z "$pkgFile" ]; then
+          echo "error: no .pkg found inside ${pname}-${version} dmg, found:" >&2
+          find . >&2
+          exit 1
+        fi
+        cp "$pkgFile" "$out/${pname}-${version}.pkg"
+        runHook postInstall
+      '';
+
+      meta.platforms = pkgs.lib.platforms.darwin;
+    };
 }

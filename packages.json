@@ -133,12 +133,12 @@
     {
       "name": "blackmagic-desktop-video",
       "kind": "pkg",
-      "kindDetail": "external",
+      "kindDetail": "externalDmgContainsPkg",
       "pkgId": "com.blackmagic-design.DesktopVideo",
       "version": "REPLACE_ME",
-      "localPath": "/Users/Shared/nc-vendor/blackmagic-desktop-video.pkg",
+      "localPath": "/Users/Shared/nc-vendor/blackmagic-desktop-video.dmg",
       "homepage": "https://www.blackmagicdesign.com/support/family/capture-and-playback",
-      "note": "manual-local, kindDetail external: this installer is ~700MB+ once extracted -- nowhere near GitHub's 100MB push limit even with Git LFS's free tier -- so it's never committed at all (see vendor/README.md), just placed by hand at this fixed absolute path on each Mac. Blackmagic ships this as a .dmg (or a .zip containing a .dmg) wrapping the real installer .pkg -- extract just the .pkg and place it here, e.g. via `python3 scripts/update_packages.py provision --staging <dir>` after doing the dmg extraction yourself. Then run: python3 scripts/update_packages.py pkg update blackmagic-desktop-video <version>.",
+      "note": "manual-local, kindDetail externalDmgContainsPkg: this installer is ~700MB+ -- nowhere near GitHub's 100MB push limit even with Git LFS's free tier -- so it's never committed at all (see vendor/README.md), just placed by hand at this fixed absolute path on each Mac. Confirmed this ships as a plain .dmg (not zip-wrapped) containing the real installer .pkg -- no manual extraction needed, Nix pulls the .pkg out of the .dmg itself at build time (lib/mac-apps.nix's mkPkgFromLocalDmg). Just place the raw .dmg here (rename to match this exact filename), e.g. via `python3 scripts/update_packages.py provision --staging <dir>`, then run: python3 scripts/update_packages.py pkg update blackmagic-desktop-video <version>.",
       "update": {
         "strategy": "manual-local"
       }
@@ -146,12 +146,12 @@
     {
       "name": "atem-software-control",
       "kind": "pkg",
-      "kindDetail": "external",
+      "kindDetail": "externalDmgContainsPkg",
       "pkgId": "com.blackmagic-design.ATEMSoftwareControl",
       "version": "REPLACE_ME",
-      "localPath": "/Users/Shared/nc-vendor/atem-software-control.pkg",
+      "localPath": "/Users/Shared/nc-vendor/atem-software-control.dmg",
       "homepage": "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers",
-      "note": "manual-local, kindDetail external: same situation as blackmagic-desktop-video, if anything worse -- the 'Blackmagic ATEM Switchers' installer suite download is multiple GB. Never committed to git; placed by hand at this fixed path. Extract the .pkg out of whatever .dmg Blackmagic ships, place it here, then run: python3 scripts/update_packages.py pkg update atem-software-control <version>.",
+      "note": "manual-local, kindDetail externalDmgContainsPkg: same situation as blackmagic-desktop-video, if anything worse -- the 'Blackmagic ATEM Switchers' installer download runs multiple GB. Confirmed this is also a plain .dmg wrapping the real installer .pkg -- no manual extraction needed, Nix pulls the .pkg out at build time. Never committed to git; place the raw .dmg here (rename to match this exact filename), then run: python3 scripts/update_packages.py pkg update atem-software-control <version>.",
       "update": {
         "strategy": "manual-local"
       }

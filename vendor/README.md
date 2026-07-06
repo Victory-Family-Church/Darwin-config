@@ -20,14 +20,25 @@ different reasons:
 
 We initially tried checking these straight into git. That failed almost
 immediately: `grandma3-onpc.pkg` alone is **697MB**, Blackmagic's
-installers extract out to **hundreds of MB to multiple GB**. GitHub
-hard-blocks any single file over 100MB without Git LFS, and even LFS's
-free tier (1GB total) can't hold one of these, let alone all of them. So
-instead, `packages.json` gives each of these a `"kindDetail": "external"`
-and a fixed **absolute** `"localPath"` (e.g.
+downloads run **hundreds of MB to multiple GB** (ATEM Switchers' is
+5.7GB). GitHub hard-blocks any single file over 100MB without Git LFS, and
+even LFS's free tier (1GB total) can't hold one of these, let alone all of
+them. So instead, `packages.json` gives each of these a `"kindDetail"` of
+`"external"` (or `"externalDmgContainsPkg"` -- see below) and a fixed
+**absolute** `"localPath"` (e.g.
 `/Users/Shared/nc-vendor/grandma3-onpc.pkg`) that lives completely outside
 this repo. `overlays/production-apps.nix` reads straight from that path at
 build time -- nothing is ever fetched or committed for these five.
+
+**Blackmagic Desktop Video and ATEM Software Control are both a plain
+`.dmg` wrapping the real installer `.pkg`** -- confirmed, not zip-wrapped.
+Rather than making you extract the `.pkg` by hand, their `kindDetail` is
+`"externalDmgContainsPkg"` and `"localPath"` points at the raw `.dmg`
+itself (e.g. `blackmagic-desktop-video.dmg`) -- Nix pulls the `.pkg` out
+of it automatically at build time (`lib/mac-apps.nix`'s
+`mkPkgFromLocalDmg`), the same technique already used for the
+URL-fetched `dante-controller`. Just place the downloaded `.dmg` at the
+fixed path (renamed to match), nothing to unwrap yourself.
 
 If `packages.json` also has a `"localSha256"` for one of these, the
 overlay cross-checks the file at that path against it and **fails the
@@ -44,15 +55,20 @@ as-is.
 1. Download each installer this host's role needs from the vendor (see
    each package's `"homepage"` in `packages.json`, or run
    `python3 scripts/update_packages.py list-all`).
-2. **If it's a .dmg/.zip wrapping a .pkg, extract the real installer
-   first.** Blackmagic and Audinate both ship that way -- mount it in
-   Finder (or `undmg`/`unzip` it) and pull out just the `.pkg`. Spotify is
-   the one exception: its `.dmg` already contains `Spotify.app` directly,
-   nothing to unwrap.
-3. Drop the extracted files into a staging folder (this `vendor/`
-   directory works fine, or anywhere else -- it's never read directly by
-   Nix), named to match each package's `"localPath"` basename (e.g.
-   `grandma3-onpc.pkg`, `blackmagic-desktop-video.pkg`, `spotify.dmg`).
+2. **Extraction needed only for `dante-virtual-soundcard`** (whatever
+   `.dmg`/`.zip` Audinate ships it in -- pull out just the `.pkg`).
+   Everything else is used as-is:
+   - `blackmagic-desktop-video` / `atem-software-control` -- keep the raw
+     `.dmg` Blackmagic gives you, don't extract it. Nix pulls the `.pkg`
+     out of the `.dmg` automatically at build time.
+   - `grandma3-onpc` -- already a plain `.pkg`.
+   - `spotify` -- keep the raw `.dmg`, it already contains `Spotify.app`
+     directly.
+3. Drop the files into a staging folder (this `vendor/` directory works
+   fine, or anywhere else -- it's never read directly by Nix), renamed to
+   match each package's `"localPath"` basename exactly (e.g.
+   `grandma3-onpc.pkg`, `blackmagic-desktop-video.dmg`, `spotify.dmg`) --
+   the provisioning step below matches by exact filename.
 4. Run the provisioning helper, either via the CLI or as a flake app:
    ```sh
    python3 scripts/update_packages.py provision --staging ./vendor
