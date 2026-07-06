@@ -8,8 +8,10 @@
 #
 # Each entry is one of:
 #   { type = "app"; version; appName; drv; }   -- built from a .dmg/.zip
-#   { type = "pkg"; version; pkgId;   src; }   -- a hash-pinned .pkg, run by
-#                                                  modules/mac-app-activation.nix
+#   { type = "pkg"; version; pkgId;   src; }   -- a hash-pinned .pkg (fetched by
+#                                                  URL, or checked into the repo
+#                                                  for kindDetail == "local"), run
+#                                                  by modules/mac-app-activation.nix
 final: prev:
 let
   lib = prev.lib;
@@ -18,7 +20,18 @@ let
   manifest = (builtins.fromJSON (builtins.readFile ../packages.json)).packages;
 
   buildEntry = entry:
-    if entry.kind == "zip" || entry.kind == "dmg" then {
+    if entry.kind == "zip" && (entry.kindDetail or null) == "zipContainsDmg" then {
+      # e.g. Klang: KLANG:app ships as a .zip containing a .dmg containing
+      # the .app -- two layers deep instead of one.
+      type = "app";
+      version = entry.version;
+      appName = entry.appName;
+      drv = mac.mkAppFromZippedDmg final {
+        pname = entry.name;
+        inherit (entry) version url sha256 appName;
+      };
+    }
+    else if entry.kind == "zip" || entry.kind == "dmg" then {
       type = "app";
       version = entry.version;
       appName = entry.appName;
@@ -35,6 +48,16 @@ let
         pname = entry.name;
         inherit (entry) version url sha256;
       };
+    }
+    else if entry.kind == "pkg" && (entry.kindDetail or null) == "local" then {
+      # No fetchable URL at all (e.g. grandMA3 onPC's access-token-gated
+      # download) -- the installer is checked into the repo itself at
+      # entry.localPath and referenced directly, so there's nothing to
+      # re-download, ever, and no token to expire. See vendor/README.md.
+      type = "pkg";
+      version = entry.version;
+      pkgId = entry.pkgId;
+      src = ../. + "/${entry.localPath}";
     }
     else if entry.kind == "pkg" then {
       type = "pkg";

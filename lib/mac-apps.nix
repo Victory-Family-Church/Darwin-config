@@ -66,6 +66,47 @@ rec {
       name = "${pname}-${version}.pkg";
     };
 
+  # Some vendors (e.g. Klang, whose KLANG:app download is a .zip containing
+  # a .dmg containing the .app) wrap an app two layers deep. Unzip, then
+  # undmg the .dmg found inside, then pull the .app out same as
+  # mkAppFromArchive. Produces $out/Applications/<appName>.
+  mkAppFromZippedDmg = pkgs:
+    { pname
+    , version
+    , url
+    , sha256
+    , appName
+    }:
+    pkgs.stdenvNoCC.mkDerivation {
+      inherit pname version;
+      src = pkgs.fetchurl { inherit url sha256; };
+      nativeBuildInputs = [ pkgs.unzip pkgs.undmg ];
+      sourceRoot = ".";
+      dontConfigure = true;
+      dontBuild = true;
+
+      installPhase = ''
+        runHook preInstall
+        dmgFile="$(find . -maxdepth 2 -iname '*.dmg' -print -quit)"
+        if [ -z "$dmgFile" ]; then
+          echo "error: no .dmg found inside ${pname}-${version} zip, found:" >&2
+          find . >&2
+          exit 1
+        fi
+        undmg "$dmgFile"
+        mkdir -p "$out/Applications"
+        if [ ! -d "${appName}" ]; then
+          echo "error: expected '${appName}' after unpacking the .dmg inside ${pname}-${version}.zip, but found:" >&2
+          ls -la >&2
+          exit 1
+        fi
+        cp -R "${appName}" "$out/Applications/"
+        runHook postInstall
+      '';
+
+      meta.platforms = pkgs.lib.platforms.darwin;
+    };
+
   # Some vendors (e.g. Audinate/Dante Controller) ship their .pkg installer
   # wrapped inside a .dmg. Extract the inner .pkg with undmg so activation
   # still gets handed a plain .pkg path.

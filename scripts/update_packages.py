@@ -324,6 +324,13 @@ def sync_one(pkg, dry_run):
         print(f"-  {pkg['name']}: manual strategy, skipping (use 'pkg update {pkg['name']} <url>')")
         return False
 
+    if strategy_name == "manual-local":
+        print(
+            f"-  {pkg['name']}: manual-local strategy, skipping -- this one lives at "
+            f"{pkg.get('localPath', '?')} in the repo, not a URL. See vendor/README.md."
+        )
+        return False
+
     fn = STRATEGIES.get(strategy_name)
     if fn is None:
         print(f"!  {pkg['name']}: unknown update strategy '{strategy_name}', skipping")
@@ -397,18 +404,31 @@ def cmd_list_all(args):
     print("-" * len(header))
 
     manual_count = 0
+    local_count = 0
     placeholder_count = 0
     for p in sorted(packages, key=lambda p: p["name"]):
         strategy = p["update"]["strategy"]
         is_placeholder = p.get("url") == "REPLACE_ME" or p["version"] == "REPLACE_ME"
         if strategy == "manual":
             manual_count += 1
+        if strategy == "manual-local":
+            local_count += 1
         if is_placeholder:
             placeholder_count += 1
-        note = "NEEDS pkg update <name> <url>" if is_placeholder else ("manual" if strategy == "manual" else "")
+        if is_placeholder:
+            note = "NEEDS pkg update <name> <url>"
+        elif strategy == "manual-local":
+            note = f"local: {p.get('localPath', '?')}"
+        elif strategy == "manual":
+            note = "manual"
+        else:
+            note = ""
         print(row(p["name"], p["kind"], p["version"], strategy, note))
 
-    print(f"\n{len(packages)} packages -- {manual_count} manual-strategy, {placeholder_count} still REPLACE_ME.")
+    print(
+        f"\n{len(packages)} packages -- {manual_count} manual-strategy, "
+        f"{local_count} local (vendor/), {placeholder_count} still REPLACE_ME."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -469,6 +489,15 @@ def cmd_pkg_update(args):
     pkg = find_pkg(manifest, args.name)
     if pkg is None:
         print(f"error: no package named '{args.name}' in packages.json -- use 'pkg add' first")
+        sys.exit(1)
+
+    if pkg["update"]["strategy"] == "manual-local":
+        print(
+            f"error: '{args.name}' is a manual-local package (lives at "
+            f"{pkg.get('localPath', '?')} in the repo, not fetched by URL). "
+            f"Download the new installer, overwrite that file, `git add` it, and hand-edit "
+            f"\"version\" in packages.json -- see vendor/README.md."
+        )
         sys.exit(1)
 
     version_arg, url_arg = args.version, args.url

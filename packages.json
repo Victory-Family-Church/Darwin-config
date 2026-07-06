@@ -139,26 +139,27 @@
       "update": { "strategy": "manual" }
     },
     {
-      "name": "klang-fabrik",
-      "kind": "pkg",
-      "pkgId": "com.klang.fabrik",
-      "version": "REPLACE_ME",
-      "url": "REPLACE_ME",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
-      "homepage": "https://www.klang.com/",
-      "note": "Klang does not publish Klang:fabrik through a discoverable stable URL or Homebrew cask. Fill in with scripts/update_packages.py pkg update klang-fabrik <url> after downloading from your Klang account.",
+      "name": "klang-app",
+      "kind": "zip",
+      "kindDetail": "zipContainsDmg",
+      "appName": "KLANG:app.app",
+      "version": "6.0.3",
+      "url": "https://www.klang.com/wp-content/uploads/ppf/KLANGapp_6_0_3_MacOS.zip",
+      "sha256": "3394d30d0708c38b33419dbee6c001a84b45e803af23938be606f02463b4332e",
+      "homepage": "https://www.klang.com/klangapp-for-mac/",
+      "note": "Corrected from an earlier 'klang-fabrik' placeholder: the actual product for in-ear monitoring control is KLANG:app (not Klang:fabrik), and unlike grandMA3/Blackmagic/DVS it turns out to have a plain, stable wp-content download URL -- no account/token gate -- so this is a normal fetchurl-based entry, not a manual/local one. It's also wrapped two layers deep (.zip > .dmg > .app), handled by kindDetail zipContainsDmg / lib/mac-apps.nix's mkAppFromZippedDmg. appName is my best guess at the exact bundle name from KLANG's own branding -- if the real folder name inside the dmg differs, the build fails loudly with an `ls -la` of what it actually found, so it's self-correcting on the first `darwin-rebuild build`.",
       "update": { "strategy": "manual" }
     },
     {
       "name": "grandma3-onpc",
       "kind": "pkg",
+      "kindDetail": "local",
       "pkgId": "com.malighting.grandma3onpc",
       "version": "REPLACE_ME",
-      "url": "REPLACE_ME",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "localPath": "vendor/grandma3-onpc.pkg",
       "homepage": "https://www.malighting.com/downloads/products/grandma3/",
-      "note": "malighting.com/downloads is a JS product picker with no stable/versioned URL to poll, and grandMA3 onPC may be gated behind an MA account depending on release channel. Download the macOS grandMA3 onPC installer manually, then run: python3 scripts/update_packages.py pkg update grandma3-onpc <url>. pkgId above is a guess -- after the first manual install, run `pkgutil --pkgs | grep -i grandma` (or `malighting`) on the Mac and fix pkgId in this file if it doesn't match, otherwise the activation script's install-once check in modules/mac-app-activation.nix will never consider it already installed. If MA actually ships this as a .dmg/.app instead of a .pkg, change \"kind\" to \"dmg\" and add an \"appName\" field instead of pkgId.",
-      "update": { "strategy": "manual" }
+      "note": "MA Lighting gates grandMA3 onPC downloads behind an access-token URL tied to your MA account session, not a stable public link -- storing that URL in packages.json would break the next time Nix needs to re-fetch it (new machine, `nix-collect-garbage`, etc), since the token will have expired by then. So this one skips fetchurl entirely: download the installer once yourself, save it at vendor/grandma3-onpc.pkg, `git add` it (flakes only see git-tracked files), and set \"version\" here to match. Nix then reads it straight out of the repo -- no re-download, ever, and no token to expire. See vendor/README.md, including the licensing/redistribution caveat about checking in someone else's installer. pkgId above is a guess -- after the first manual install, run `pkgutil --pkgs | grep -i grandma` (or `malighting`) on the Mac and fix pkgId here if it doesn't match, otherwise modules/mac-app-activation.nix's install-once check never considers it already installed. If MA actually ships this as a .dmg/.app instead of a .pkg, change \"kind\" to \"dmg\" and add an \"appName\" field instead of pkgId.",
+      "update": { "strategy": "manual-local" }
     },
     {
       "name": "desktoppr",

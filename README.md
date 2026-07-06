@@ -17,11 +17,13 @@ overlay at `overlays/production-apps.nix`.
 
 ```
 flake.nix                       darwinConfigurations for the 4 hosts
+shell.nix                       nix-shell with update-packages on PATH
 packages.json                   version/url/sha256 for every vendor app (source of truth)
-lib/mac-apps.nix                builders: extract an .app from .dmg/.zip, wrap a .pkg
+lib/mac-apps.nix                builders: extract an .app from .dmg/.zip, wrap a .pkg, incl. nested archives
 lib/mk-wallpaper.nix            builds a wallpaper PNG: bg color + optional logo + hostname text
 overlays/production-apps.nix    reads packages.json -> exposes pkgs.macApps.<name>
 assets/                         drop assets/logo.png here to have it composited into the wallpaper
+vendor/                         checked-in installers for access-token-gated downloads (e.g. grandMA3 onPC)
 modules/
   common.nix                   hostname/computer name, nix settings, apps every Mac gets
   cg-account.nix                parameterized CG-* user account (admin + autologin)
@@ -29,7 +31,7 @@ modules/
   wallpaper.nix                  generates + sets the wallpaper via desktoppr (see below)
   roles/
     main-presentation.nix       ProPresenter, Word, PowerPoint
-    foh.nix                     Spotify, Wireless Workbench, Klang:fabrik, DVS, Dante Controller, Reaper
+    foh.nix                     Spotify, Wireless Workbench, KLANG:app, DVS, Dante Controller, Reaper
     lighting.nix                 grandMA3 onPC
     nextgen-presentation.nix    ProPresenter only
 hosts/
@@ -37,7 +39,7 @@ hosts/
   nc-production-main-cg-2/      NC-Production-Main-CG-2 (FOH)
   nc-production-main-cg-3/      NC-Production-Main-CG-3 (lighting)
   nc-production-nextgen-cg-1/   NC-Production-NextGen-CG-1
-scripts/update_packages.py      manages packages.json (bulk sync + per-package add/update/info/delete/revert)
+scripts/update_packages.py      manages packages.json (list-all, sync, per-package add/update/info/delete/revert)
 ```
 
 ## How app installs work
@@ -120,32 +122,37 @@ cd ~/nc-production-nix-darwin
 sudo darwin-rebuild switch --flake .#NC-Production-Main-CG-1   # or -CG-2 / -CG-3 / NextGen-CG-1
 ```
 
-**3. Fill in the 5 placeholder packages.** `blackmagic-desktop-video`,
-`atem-software-control`, `dante-virtual-soundcard`, `klang-fabrik`, and
-`grandma3-onpc` don't have a stable, publicly-discoverable download URL
-(vendor product picker / license-gated account), so `packages.json` ships
-them with `"url": "REPLACE_ME"` and a zeroed hash. **The build will fail
-until you fix these** for any host that needs them (all 4 hosts need the
-two Blackmagic packages; CG-2/FOH also needs the Dante/Klang ones; CG-3/
-lighting needs grandMA3 onPC). Download each installer manually from the
-vendor once, then run:
+**3. Fill in the remaining placeholder packages.** Run
+`python3 scripts/update_packages.py list-all` to see exactly which ones
+still say `REPLACE_ME` -- currently `blackmagic-desktop-video`,
+`atem-software-control`, and `dante-virtual-soundcard` (no stable,
+publicly-discoverable download URL: vendor product picker / license-gated
+account). **The build will fail until you fix these** for any host that
+needs them (all 4 hosts need the two Blackmagic packages; CG-2/FOH also
+needs DVS). Download each installer manually from the vendor once, then
+run:
 
 ```sh
 python3 scripts/update_packages.py pkg update blackmagic-desktop-video <url-you-got>
 python3 scripts/update_packages.py pkg update atem-software-control <url-you-got>
 python3 scripts/update_packages.py pkg update dante-virtual-soundcard <url-you-got>
-python3 scripts/update_packages.py pkg update klang-fabrik <url-you-got>
-python3 scripts/update_packages.py pkg update grandma3-onpc <url-you-got>
 ```
-
-For `grandma3-onpc` specifically: after the first manual install, run
-`pkgutil --pkgs | grep -i grandma` on that Mac and make sure it matches
-`pkgId` in `packages.json` (currently a guess, `com.malighting.grandma3onpc`)
--- otherwise the activation script's "already installed?" check never
-matches and it reinstalls every `darwin-rebuild switch`.
 
 This downloads the file, computes its sha256, and writes the real
 version/url/hash into `packages.json` for you.
+
+`grandma3-onpc` (CG-3/lighting) is a different case: MA Lighting's
+download is gated behind an access-token URL tied to your account session,
+which won't survive being stored in `packages.json` and re-fetched later.
+Instead, it's checked into the repo directly -- download it once, save it
+at `vendor/grandma3-onpc.pkg`, `git add` it, and set `"version"` in
+`packages.json` by hand. Full details, including a licensing note about
+checking in a vendor's proprietary installer, are in `vendor/README.md`.
+After the first manual install, also run `pkgutil --pkgs | grep -i grandma`
+on that Mac and make sure it matches `pkgId` in `packages.json` (currently
+a guess, `com.malighting.grandma3onpc`) -- otherwise the activation
+script's "already installed?" check never matches and it reinstalls every
+`darwin-rebuild switch`.
 
 **4. Set account passwords + enable autologin.** Nix intentionally can't set
 macOS login passwords (no plaintext secrets belong in the Nix store), so
@@ -193,15 +200,18 @@ python3 scripts/update_packages.py sync             # check + update every packa
 python3 scripts/update_packages.py sync --dry-run    # preview without writing packages.json
 ```
 
-10 of the 14 packages (ProPresenter, Microsoft Word/PowerPoint, Dropbox,
-Spotify, REAPER, Wireless Workbench, Dante Controller, Tailscale, TeamViewer)
-have an automatic strategy that polls the vendor's own update-check endpoint,
-downloads the new build, and rewrites `packages.json` with the new
-version/url/sha256. `sync` skips the 4 manual packages (see step 3 above) --
-those need `pkg update <name> <url>` each time the vendor ships an update,
-since there's no feed to poll. Review the diff (`git diff packages.json`)
-before committing -- especially for Microsoft Office and Wireless Workbench,
-whose installers make system-level changes.
+Most packages (ProPresenter, Microsoft Word/PowerPoint, Dropbox, Spotify,
+REAPER, Wireless Workbench, Dante Controller, Tailscale, TeamViewer,
+desktoppr) have an automatic strategy that polls the vendor's own
+update-check endpoint, downloads the new build, and rewrites
+`packages.json` with the new version/url/sha256. `sync` skips
+`"manual"`-strategy packages (see step 3 above) -- those need
+`pkg update <name> <url>` each time the vendor ships an update, since
+there's no feed to poll -- and skips `"manual-local"` packages
+(`grandma3-onpc`) entirely, since those aren't fetched by URL at all (see
+`vendor/README.md`). `list-all` shows you which is which. Review the diff
+(`git diff packages.json`) before committing -- especially for Microsoft
+Office and Wireless Workbench, whose installers make system-level changes.
 
 ### One package at a time
 
