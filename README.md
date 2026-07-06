@@ -67,6 +67,13 @@ There's no Homebrew cask here -- `pkgs.macApps.<name>` is built straight from
   reasonably hold, so they're placed by hand at a fixed absolute path on
   each Mac (e.g. `/Users/Shared/nc-vendor/grandma3-onpc.pkg`) and Nix reads
   straight from there. See `vendor/README.md` and "Provisioning" below.
+- **`spotify` specifically** isn't a drag-install `.dmg`/`.pkg` at all --
+  its download is `"Install Spotify.app"`, a standalone executable
+  installer bundle that has to be *run* once to install `Spotify.app`, not
+  copied or symlinked. It's the one `"app-installer"`-type package: run
+  from a LaunchAgent at login (same reasoning as `desktoppr` below --
+  installing needs a real login session), idempotent by checking whether
+  `/Applications/Spotify.app` already exists.
 
 ## Wallpaper
 

@@ -455,6 +455,24 @@ def cmd_list_all(args):
 # `provision` -- one-time setup for manual-local vendor installers
 # ---------------------------------------------------------------------------
 
+def sha256_of_path(path: Path):
+    """sha256 of a file, or None for a directory (e.g. an .app bundle --
+    installer-app packages like Spotify are a whole bundle, not a single
+    file, and there's no single-file hash to compute)."""
+    if path.is_dir():
+        return None
+    return sha256_of(path.read_bytes())
+
+
+def copy_path(src: Path, dst: Path):
+    """Copy a file or a whole directory tree (e.g. an .app bundle)."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+    else:
+        shutil.copy2(src, dst)
+
+
 def cmd_provision(args):
     manifest = load_manifest()
     packages = [p for p in manifest["packages"] if p["update"]["strategy"] == "manual-local"]
@@ -485,17 +503,21 @@ def cmd_provision(args):
 
         if not target.exists() and staging and not args.status:
             candidate = staging / target.name
-            if candidate.is_file():
-                target.parent.mkdir(parents=True, exist_ok=True)
+            if candidate.exists():
                 print(f".. copying {candidate} -> {target}")
-                shutil.copy2(candidate, target)
+                copy_path(candidate, target)
 
         if not target.exists():
             missing.append((pkg["name"], str(target), pkg.get("homepage", "")))
             continue
 
-        actual_hash = sha256_of(target.read_bytes())
-        if expected_hash and actual_hash != expected_hash:
+        actual_hash = sha256_of_path(target)
+        if actual_hash is None:
+            # Directory (.app bundle, e.g. Spotify's installer-app) -- no
+            # single-file hash possible, so just existing at the right
+            # path is the whole integrity check.
+            ok.append((pkg["name"], str(target), None, expected_hash))
+        elif expected_hash and actual_hash != expected_hash:
             mismatched.append((pkg["name"], str(target), expected_hash, actual_hash))
         else:
             ok.append((pkg["name"], str(target), actual_hash, expected_hash))
@@ -503,7 +525,9 @@ def cmd_provision(args):
     print(f"OK ({len(ok)}):")
     for name, target, actual_hash, expected_hash in ok:
         print(f"  {name:<28} {target}")
-        if not expected_hash:
+        if actual_hash is None:
+            print("      directory (.app bundle) -- no single-file hash to track, path presence is the check")
+        elif not expected_hash:
             print(
                 f"      no localSha256 recorded yet -- run: "
                 f"pkg update {name} <version>  (this file's sha256 is {actual_hash[:16]}...)"
@@ -600,12 +624,19 @@ def update_manual_local(manifest, pkg, version):
         )
         sys.exit(1)
 
-    new_hash = sha256_of(local_path.read_bytes())
+    new_hash = sha256_of_path(local_path)
     old_version = pkg["version"]
     pkg["version"] = version
-    pkg["localSha256"] = new_hash
-    save_manifest(manifest)
-    print(f"updated '{pkg['name']}': {old_version} -> {version}  (localSha256={new_hash[:12]}...)")
+    if new_hash is None:
+        # Directory (.app bundle) -- no single-file hash possible. Drop
+        # any stale localSha256 rather than leave a misleading one behind.
+        pkg.pop("localSha256", None)
+        save_manifest(manifest)
+        print(f"updated '{pkg['name']}': {old_version} -> {version}  (directory -- no hash tracked)")
+    else:
+        pkg["localSha256"] = new_hash
+        save_manifest(manifest)
+        print(f"updated '{pkg['name']}': {old_version} -> {version}  (localSha256={new_hash[:12]}...)")
     # NB: `local_path` (ROOT / pkg["localPath"]) is always absolute -- ROOT
     # itself is absolute, so that alone can't tell "external" apart from
     # "local". Check the *original* string instead.

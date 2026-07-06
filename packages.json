@@ -55,13 +55,14 @@
     },
     {
       "name": "spotify",
-      "kind": "dmg",
+      "kind": "app-installer",
       "kindDetail": "external",
+      "installerAppName": "Install Spotify.app",
       "appName": "Spotify.app",
-      "version": "0.0.0",
-      "localPath": "/Users/Shared/nc-vendor/spotify.dmg",
+      "version": "REPLACE_ME",
+      "localPath": "/Users/Shared/nc-vendor/Install Spotify.app",
       "homepage": "https://www.spotify.com/",
-      "note": "manual-local, kindDetail external: never committed to git at all (see vendor/README.md) -- placed by hand at this fixed absolute path on each Mac during initial provisioning, e.g. via `python3 scripts/update_packages.py provision --staging <dir>`. Originally pinned because Spotify's real download (download.scdn.co) is an unversioned rolling build with no vendor-published hash -- this way it's always the same known-good build instead of whatever's currently live. Does NOT need pkg-extraction like the Blackmagic/Audinate entries -- the dmg already contains Spotify.app directly. After placing the file, run: python3 scripts/update_packages.py pkg update spotify <version> -- that computes localSha256 for you.",
+      "note": "Corrected: Spotify's Mac download isn't a drag-install .dmg -- it's \"Install Spotify.app\", a standalone executable installer bundle (confirmed from the actual vendor/ contents), not wrapped in any .dmg/.zip. \"kind\": \"app-installer\" means it gets *run* once (via a LaunchAgent, since it needs a real login/WindowServer session same as desktoppr) rather than symlinked (\"app\") or run through /usr/sbin/installer (\"pkg\") -- modules/mac-app-activation.nix checks for /Applications/Spotify.app (\"appName\") to know whether it's already been installed, and if not, opens \"installerAppName\" from localPath. Since localPath is a directory (an .app bundle), there's no localSha256 integrity check here (builtins.hashFile only works on single files) -- integrity just comes from the exact path being correct. Place the actual \"Install Spotify.app\" bundle at this exact path (rename/move the whole .app, not just a file inside it), then run: python3 scripts/update_packages.py pkg update spotify <version>. Originally pinned to a specific downloaded build because Spotify's real download (download.scdn.co) is an unversioned rolling build with no vendor-published hash.",
       "update": {
         "strategy": "manual-local"
       }
@@ -135,7 +136,7 @@
       "kind": "pkg",
       "kindDetail": "externalDmgContainsPkg",
       "pkgId": "com.blackmagic-design.DesktopVideo",
-      "version": "16.0.1",
+      "version": "REPLACE_ME",
       "localPath": "/Users/Shared/nc-vendor/blackmagic-desktop-video.dmg",
       "homepage": "https://www.blackmagicdesign.com/support/family/capture-and-playback",
       "note": "manual-local, kindDetail externalDmgContainsPkg: this installer is ~700MB+ -- nowhere near GitHub's 100MB push limit even with Git LFS's free tier -- so it's never committed at all (see vendor/README.md), just placed by hand at this fixed absolute path on each Mac. Confirmed this ships as a plain .dmg (not zip-wrapped) containing the real installer .pkg -- no manual extraction needed, Nix pulls the .pkg out of the .dmg itself at build time (lib/mac-apps.nix's mkPkgFromLocalDmg). Just place the raw .dmg here (rename to match this exact filename), e.g. via `python3 scripts/update_packages.py provision --staging <dir>`, then run: python3 scripts/update_packages.py pkg update blackmagic-desktop-video <version>.",
@@ -148,7 +149,7 @@
       "kind": "pkg",
       "kindDetail": "externalDmgContainsPkg",
       "pkgId": "com.blackmagic-design.ATEMSoftwareControl",
-      "version": "10.2.1",
+      "version": "REPLACE_ME",
       "localPath": "/Users/Shared/nc-vendor/atem-software-control.dmg",
       "homepage": "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers",
       "note": "manual-local, kindDetail externalDmgContainsPkg: same situation as blackmagic-desktop-video, if anything worse -- the 'Blackmagic ATEM Switchers' installer download runs multiple GB. Confirmed this is also a plain .dmg wrapping the real installer .pkg -- no manual extraction needed, Nix pulls the .pkg out at build time. Never committed to git; place the raw .dmg here (rename to match this exact filename), then run: python3 scripts/update_packages.py pkg update atem-software-control <version>.",

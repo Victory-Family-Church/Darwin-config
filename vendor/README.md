@@ -40,10 +40,24 @@ of it automatically at build time (`lib/mac-apps.nix`'s
 URL-fetched `dante-controller`. Just place the downloaded `.dmg` at the
 fixed path (renamed to match), nothing to unwrap yourself.
 
-If `packages.json` also has a `"localSha256"` for one of these, the
-overlay cross-checks the file at that path against it and **fails the
-build loudly** if they don't match -- catching the case where the wrong
-file (or no file) is sitting there.
+**Spotify is different from all the others: it's not a .dmg at all.**
+Confirmed from the actual vendor contents -- Spotify's Mac download is
+`"Install Spotify.app"`, a standalone executable installer *bundle* (a
+directory, not a single file) that has to be *run* once to install the
+real `Spotify.app`, not copied or symlinked. Its `"kind"` is
+`"app-installer"` and `"localPath"` points at the whole `.app` directory
+itself. Because it's a directory, there's no `builtins.hashFile`-based
+integrity check possible here (that only works on single files) --
+`packages.json` won't have a `"localSha256"` for this one, and that's
+expected. `modules/mac-app-activation.nix` runs it from a LaunchAgent
+(same reasoning as `desktoppr`: installing needs a real login/WindowServer
+session, which the root activation script during `darwin-rebuild` doesn't
+have), checking for `/Applications/Spotify.app` to know it's already done.
+
+If `packages.json` has a `"localSha256"` for one of the single-file
+entries, the overlay cross-checks the file at that path against it and
+**fails the build loudly** if they don't match -- catching the case where
+the wrong file (or no file) is sitting there.
 
 ## Provisioning a new Mac
 
@@ -62,13 +76,16 @@ as-is.
      `.dmg` Blackmagic gives you, don't extract it. Nix pulls the `.pkg`
      out of the `.dmg` automatically at build time.
    - `grandma3-onpc` -- already a plain `.pkg`.
-   - `spotify` -- keep the raw `.dmg`, it already contains `Spotify.app`
-     directly.
-3. Drop the files into a staging folder (this `vendor/` directory works
-   fine, or anywhere else -- it's never read directly by Nix), renamed to
-   match each package's `"localPath"` basename exactly (e.g.
-   `grandma3-onpc.pkg`, `blackmagic-desktop-video.dmg`, `spotify.dmg`) --
-   the provisioning step below matches by exact filename.
+   - `spotify` -- keep the whole `"Install Spotify.app"` bundle as-is
+     (it's a directory, not a file that unzips/mounts into something
+     else) -- don't dig inside it.
+3. Drop the files (or, for Spotify, the whole `.app` bundle) into a
+   staging folder (this `vendor/` directory works fine, or anywhere else --
+   it's never read directly by Nix), renamed to match each package's
+   `"localPath"` basename exactly (e.g. `grandma3-onpc.pkg`,
+   `blackmagic-desktop-video.dmg`, `Install Spotify.app`) -- the
+   provisioning step below matches by exact filename and copies whole
+   directories intact.
 4. Run the provisioning helper, either via the CLI or as a flake app:
    ```sh
    python3 scripts/update_packages.py provision --staging ./vendor

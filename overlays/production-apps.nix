@@ -7,11 +7,18 @@
 # hashes without touching this file.
 #
 # Each entry is one of:
-#   { type = "app"; version; appName; drv; }   -- built from a .dmg/.zip
-#   { type = "pkg"; version; pkgId;   src; }   -- a hash-pinned .pkg (fetched by
-#                                                  URL, or checked into the repo
-#                                                  for kindDetail == "local"), run
-#                                                  by modules/mac-app-activation.nix
+#   { type = "app"; version; appName; drv; }   -- built from a .dmg/.zip,
+#                                                  symlinked into /Applications
+#   { type = "pkg"; version; pkgId; src; }     -- a hash-pinned .pkg (fetched by
+#                                                  URL, checked into the repo, or
+#                                                  placed at a fixed external path),
+#                                                  run via /usr/sbin/installer
+#   { type = "installer-app"; version; appName; installerAppName; src; }
+#                                               -- a standalone executable installer
+#                                                  bundle (e.g. Spotify's "Install
+#                                                  Spotify.app") that has to be run
+#                                                  once via a LaunchAgent
+# All handled by modules/mac-app-activation.nix.
 final: prev:
 let
   lib = prev.lib;
@@ -106,10 +113,12 @@ let
       };
     }
     else if (entry.kind == "zip" || entry.kind == "dmg") && (entry.kindDetail or null) == "external" then {
-      # e.g. Spotify: pinned to a specific downloaded build instead of
-      # always tracking whatever's currently live at download.scdn.co, and
-      # placed at a fixed absolute path outside git (see externalSrc above
-      # and vendor/README.md) rather than committed.
+      # A .dmg/.zip that directly contains the final .app (no install step
+      # needed beyond symlinking), placed at a fixed absolute path outside
+      # git instead of fetched/committed. Nothing in packages.json
+      # currently uses this -- Spotify turned out to need "app-installer"
+      # below instead -- but it's kept available should some other vendor
+      # app ship this way.
       type = "app";
       version = entry.version;
       appName = entry.appName;
@@ -127,6 +136,25 @@ let
         pname = entry.name;
         inherit (entry) version url sha256 appName kind;
       };
+    }
+    else if entry.kind == "app-installer" && (entry.kindDetail or null) == "external" then {
+      # e.g. Spotify: the vendor download isn't a drag-install app at all,
+      # it's a standalone executable installer bundle ("Install
+      # Spotify.app") that has to be *run* once to actually install
+      # "Spotify.app" -- placed at a fixed external path (a whole .app
+      # bundle, i.e. a directory) same as the other manual-local packages.
+      # modules/mac-app-activation.nix runs this via a LaunchAgent (it
+      # needs a real login/WindowServer session, same reasoning as
+      # desktoppr) rather than symlinking it or running it through
+      # /usr/sbin/installer. No localSha256 integrity check is possible
+      # here since it's a directory, not a single file -- externalSrc
+      # already skips hashing whenever "localSha256" is absent, which it
+      # always is for this entry.
+      type = "installer-app";
+      version = entry.version;
+      appName = entry.appName;
+      installerAppName = entry.installerAppName;
+      src = externalSrc entry;
     }
     else if entry.kind == "pkg" && (entry.kindDetail or null) == "dmgContainsPkg" then {
       type = "pkg";
