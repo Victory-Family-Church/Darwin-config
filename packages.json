@@ -58,7 +58,7 @@
       "kind": "dmg",
       "kindDetail": "external",
       "appName": "Spotify.app",
-      "version": "REPLACE_ME",
+      "version": "0.0.0",
       "localPath": "/Users/Shared/nc-vendor/spotify.dmg",
       "homepage": "https://www.spotify.com/",
       "note": "manual-local, kindDetail external: never committed to git at all (see vendor/README.md) -- placed by hand at this fixed absolute path on each Mac during initial provisioning, e.g. via `python3 scripts/update_packages.py provision --staging <dir>`. Originally pinned because Spotify's real download (download.scdn.co) is an unversioned rolling build with no vendor-published hash -- this way it's always the same known-good build instead of whatever's currently live. Does NOT need pkg-extraction like the Blackmagic/Audinate entries -- the dmg already contains Spotify.app directly. After placing the file, run: python3 scripts/update_packages.py pkg update spotify <version> -- that computes localSha256 for you.",
