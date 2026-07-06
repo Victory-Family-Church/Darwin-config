@@ -24,13 +24,26 @@ Manage one package at a time:
 `pkg update <name>` with no version/url guesses the latest upstream
 version/url the same way `sync` would, using that package's `update.strategy`
 in packages.json. Give it just a URL (`pkg update <name> <url>`) to guess
-the version from the filename instead -- handy for the 4 "manual" packages
-(blackmagic-desktop-video, atem-software-control, dante-virtual-soundcard,
-klang-fabrik) that have no discoverable stable URL to poll. Give it both
-`<version> <url>` to set them explicitly.
+the version from the filename instead. For "manual-local" packages (no URL
+at all -- see vendor/README.md) pass just the new version instead:
+`pkg update <name> <version>` rehashes whatever's already sitting at that
+package's localPath.
 
 `pkg info` and `pkg revert` read git history for packages.json, so they only
 work once this repo is an actual git checkout with some commits behind it.
+
+One-time provisioning for "manual-local"/"external" vendor installers
+(grandMA3 onPC, Blackmagic Desktop Video/ATEM Software Control, Dante
+Virtual Soundcard, Spotify -- all too large or too access-gated to fetch
+or commit to git, see vendor/README.md):
+    python3 scripts/update_packages.py provision --staging ~/Downloads
+    python3 scripts/update_packages.py provision --status
+
+Copies each one from --staging into its fixed system path (creating
+directories as needed) and verifies it against packages.json's
+localSha256, or with --status just reports what's already in place vs.
+still missing/mismatched. This is also exposed as a flake app:
+`nix run .#provision-vendor -- --staging ~/Downloads`.
 
 Only the Python standard library is used (urllib, hashlib, json, re,
 subprocess, xml.etree) so this runs anywhere Python 3.8+ is available -- no
@@ -42,6 +55,7 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import sys
 import urllib.error
@@ -417,7 +431,12 @@ def cmd_list_all(args):
             placeholder_count += 1
         if strategy == "manual-local":
             where = p.get("localPath", "?")
-            note = f"NEEDS {where} (see vendor/README.md)" if is_placeholder else f"local: {where}"
+            if is_placeholder:
+                note = f"NEEDS {where} (see vendor/README.md)"
+            elif not p.get("localSha256"):
+                note = f"local: {where} (no hash yet -- pkg update {p['name']} <version>)"
+            else:
+                note = f"local: {where}"
         elif is_placeholder:
             note = "NEEDS pkg update <name> <url>"
         elif strategy == "manual":
@@ -430,6 +449,89 @@ def cmd_list_all(args):
         f"\n{len(packages)} packages -- {manual_count} manual-strategy, "
         f"{local_count} local (vendor/), {placeholder_count} still REPLACE_ME."
     )
+
+
+# ---------------------------------------------------------------------------
+# `provision` -- one-time setup for manual-local vendor installers
+# ---------------------------------------------------------------------------
+
+def cmd_provision(args):
+    manifest = load_manifest()
+    packages = [p for p in manifest["packages"] if p["update"]["strategy"] == "manual-local"]
+
+    if not packages:
+        print("No manual-local packages in packages.json -- nothing to provision.")
+        return
+
+    staging = None
+    if args.staging:
+        staging = Path(args.staging).expanduser()
+        if not staging.is_dir():
+            print(f"error: staging directory '{staging}' doesn't exist or isn't a directory")
+            sys.exit(1)
+
+    ok, missing, mismatched = [], [], []
+
+    for pkg in packages:
+        local_path_str = pkg.get("localPath")
+        if not local_path_str:
+            continue
+        # ROOT / <absolute string> just returns the absolute path as-is
+        # (standard pathlib behavior) -- this correctly handles both
+        # kindDetail "local" (repo-relative) and "external" (absolute)
+        # without needing to know which one we're looking at.
+        target = ROOT / local_path_str
+        expected_hash = pkg.get("localSha256")
+
+        if not target.exists() and staging and not args.status:
+            candidate = staging / target.name
+            if candidate.is_file():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                print(f".. copying {candidate} -> {target}")
+                shutil.copy2(candidate, target)
+
+        if not target.exists():
+            missing.append((pkg["name"], str(target), pkg.get("homepage", "")))
+            continue
+
+        actual_hash = sha256_of(target.read_bytes())
+        if expected_hash and actual_hash != expected_hash:
+            mismatched.append((pkg["name"], str(target), expected_hash, actual_hash))
+        else:
+            ok.append((pkg["name"], str(target), actual_hash, expected_hash))
+
+    print(f"OK ({len(ok)}):")
+    for name, target, actual_hash, expected_hash in ok:
+        print(f"  {name:<28} {target}")
+        if not expected_hash:
+            print(
+                f"      no localSha256 recorded yet -- run: "
+                f"pkg update {name} <version>  (this file's sha256 is {actual_hash[:16]}...)"
+            )
+
+    if mismatched:
+        print(f"\nMISMATCH ({len(mismatched)}) -- wrong file at that path:")
+        for name, target, expected, actual in mismatched:
+            print(f"  {name:<28} {target}")
+            print(f"      expected sha256 {expected}")
+            print(f"      actual   sha256 {actual}")
+
+    if missing:
+        print(f"\nMISSING ({len(missing)}):")
+        for name, target, homepage in missing:
+            print(f"  {name:<28} {target}")
+            if homepage:
+                print(f"      get it from: {homepage}")
+
+    print()
+    if missing or mismatched:
+        print(
+            f"{len(missing)} missing, {len(mismatched)} mismatched -- "
+            f"not ready for darwin-rebuild on this host yet."
+        )
+        sys.exit(1)
+    else:
+        print(f"All {len(ok)} manual-local packages are in place and verified.")
 
 
 # ---------------------------------------------------------------------------
@@ -485,20 +587,33 @@ def cmd_pkg_add(args):
     )
 
 
+def update_manual_local(manifest, pkg, version):
+    """`pkg update <name> <version>` for a manual-local package: rehash the
+    file already sitting at pkg['localPath'] and record version +
+    localSha256. There's no download here -- the vendor file is expected
+    to already be in place (see vendor/README.md)."""
+    local_path = ROOT / pkg["localPath"]
+    if not local_path.exists():
+        print(
+            f"error: {local_path} doesn't exist yet -- save the installer there first, "
+            f"then re-run this (see vendor/README.md)"
+        )
+        sys.exit(1)
+
+    new_hash = sha256_of(local_path.read_bytes())
+    old_version = pkg["version"]
+    pkg["version"] = version
+    pkg["localSha256"] = new_hash
+    save_manifest(manifest)
+    print(f"updated '{pkg['name']}': {old_version} -> {version}  (localSha256={new_hash[:12]}...)")
+    print(f"Don't forget to `git add {pkg['localPath']}` if you haven't already.")
+
+
 def cmd_pkg_update(args):
     manifest = load_manifest()
     pkg = find_pkg(manifest, args.name)
     if pkg is None:
         print(f"error: no package named '{args.name}' in packages.json -- use 'pkg add' first")
-        sys.exit(1)
-
-    if pkg["update"]["strategy"] == "manual-local":
-        print(
-            f"error: '{args.name}' is a manual-local package (lives at "
-            f"{pkg.get('localPath', '?')} in the repo, not fetched by URL). "
-            f"Download the new installer, overwrite that file, `git add` it, and hand-edit "
-            f"\"version\" in packages.json -- see vendor/README.md."
-        )
         sys.exit(1)
 
     version_arg, url_arg = args.version, args.url
@@ -507,6 +622,23 @@ def cmd_pkg_update(args):
     # argparse would otherwise bind it to `version`.
     if version_arg and not url_arg and re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", version_arg):
         version_arg, url_arg = None, version_arg
+
+    if pkg["update"]["strategy"] == "manual-local":
+        if url_arg:
+            print(
+                f"error: '{args.name}' is manual-local -- there's no URL to fetch, so a URL "
+                f"argument doesn't apply. Overwrite {pkg.get('localPath', '?')} with the new "
+                f"installer yourself, then run: pkg update {args.name} <version>"
+            )
+            sys.exit(1)
+        if not version_arg:
+            print(
+                f"error: pass the new version: pkg update {args.name} <version> "
+                f"(after saving the new installer at {pkg.get('localPath', '?')})"
+            )
+            sys.exit(1)
+        update_manual_local(manifest, pkg, version_arg)
+        return
 
     if version_arg and not url_arg:
         print(
@@ -668,6 +800,20 @@ def build_parser():
         "list-all", help="list every package in packages.json with kind/version/strategy"
     )
     p_list_all.set_defaults(func=cmd_list_all)
+
+    p_provision = top.add_parser(
+        "provision",
+        help="one-time setup: copy/verify manual-local vendor installers into their fixed paths",
+    )
+    p_provision.add_argument(
+        "--staging",
+        metavar="DIR",
+        help="directory containing downloaded installers to copy in (matched by filename)",
+    )
+    p_provision.add_argument(
+        "--status", action="store_true", help="only report status, don't copy anything"
+    )
+    p_provision.set_defaults(func=cmd_provision)
 
     p_pkg = top.add_parser("pkg", help="add/update/inspect/delete/revert a single package")
     pkg_sub = p_pkg.add_subparsers(dest="pkg_command", required=True)

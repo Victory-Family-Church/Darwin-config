@@ -13,11 +13,16 @@
     "reaper"
   ];
 
-  # dante-virtual-soundcard: packages.json has this as "manual" -- DVS
-  # requires a purchased Audinate license, so there's no public download
-  # URL to poll. Fill in the real URL with:
-  #   python3 scripts/update_packages.py pkg update dante-virtual-soundcard <url>
-  # before the first `darwin-rebuild switch` on this host.
+  # spotify, dante-virtual-soundcard: both "manual-local" in packages.json
+  # -- checked into vendor/ instead of fetched (Spotify: pinned to a known
+  # build on purpose instead of always tracking whatever's currently live;
+  # DVS: no public download URL, requires a purchased Audinate license).
+  # Before the first `darwin-rebuild switch` on this host:
+  #   1. save the installer at vendor/spotify.dmg / vendor/dante-virtual-soundcard.pkg
+  #   2. git add it
+  #   3. python3 scripts/update_packages.py pkg update spotify <version>
+  #      python3 scripts/update_packages.py pkg update dante-virtual-soundcard <version>
+  # See vendor/README.md.
   #
   # klang-app (KLANG:app) turned out to have a plain, stable download URL
   # once we actually looked -- no manual step needed, see packages.json.

@@ -23,7 +23,7 @@ lib/mac-apps.nix                builders: extract an .app from .dmg/.zip, wrap a
 lib/mk-wallpaper.nix            builds a wallpaper PNG: bg color + optional logo + hostname text
 overlays/production-apps.nix    reads packages.json -> exposes pkgs.macApps.<name>
 assets/                         drop assets/logo.png here to have it composited into the wallpaper
-vendor/                         checked-in installers for access-token-gated downloads (e.g. grandMA3 onPC)
+vendor/                         local staging only -- NOT part of git, see vendor/README.md
 modules/
   common.nix                   hostname/computer name, nix settings, apps every Mac gets
   cg-account.nix                parameterized CG-* user account (admin + autologin)
@@ -39,7 +39,7 @@ hosts/
   nc-production-main-cg-2/      NC-Production-Main-CG-2 (FOH)
   nc-production-main-cg-3/      NC-Production-Main-CG-3 (lighting)
   nc-production-nextgen-cg-1/   NC-Production-NextGen-CG-1
-scripts/update_packages.py      manages packages.json (list-all, sync, per-package add/update/info/delete/revert)
+scripts/update_packages.py      manages packages.json (list-all, sync, provision, per-package add/update/info/delete/revert)
 ```
 
 ## How app installs work
@@ -47,20 +47,26 @@ scripts/update_packages.py      manages packages.json (list-all, sync, per-packa
 There's no Homebrew cask here -- `pkgs.macApps.<name>` is built straight from
 `packages.json`:
 
-- **`.dmg` / `.zip` apps** (ProPresenter, Dropbox, Spotify, REAPER) are
+- **`.dmg` / `.zip` apps** (ProPresenter, Dropbox, REAPER, KLANG:app) are
   unpacked with `undmg`/`unzip` into a Nix store path, then
   `modules/mac-app-activation.nix` symlinks the `.app` into `/Applications`
   during `darwin-rebuild switch`.
 - **`.pkg` installers** (Microsoft Word/PowerPoint, Wireless Workbench,
-  Dante Controller, Tailscale, TeamViewer, Blackmagic Desktop Video, ATEM
-  Software Control) are fetched as hash-pinned store paths and run through
-  the real `/usr/sbin/installer` on activation -- this is intentional. A
-  from-scratch Nix rebuild of what Apple's installer(8) does (kernel
-  extensions, launch daemons, licensing helpers) is not something worth
-  reimplementing; letting the vendor's own installer run against a
-  hash-pinned artifact gets correct behavior and is still fully
-  reproducible. It's idempotent via `pkgutil --pkg-info`, so re-running
-  `darwin-rebuild switch` won't reinstall unnecessarily.
+  Dante Controller, Tailscale, TeamViewer) are fetched as hash-pinned store
+  paths and run through the real `/usr/sbin/installer` on activation --
+  this is intentional. A from-scratch Nix rebuild of what Apple's
+  installer(8) does (kernel extensions, launch daemons, licensing helpers)
+  is not something worth reimplementing; letting the vendor's own
+  installer run against a hash-pinned artifact gets correct behavior and is
+  still fully reproducible. It's idempotent via `pkgutil --pkg-info`, so
+  re-running `darwin-rebuild switch` won't reinstall unnecessarily.
+- **`manual-local` packages** (`blackmagic-desktop-video`,
+  `atem-software-control`, `dante-virtual-soundcard`, `grandma3-onpc`,
+  `spotify`) skip `fetchurl` entirely -- these installers turned out to be
+  hundreds of MB to multiple GB, way past what git (even with LFS) can
+  reasonably hold, so they're placed by hand at a fixed absolute path on
+  each Mac (e.g. `/Users/Shared/nc-vendor/grandma3-onpc.pkg`) and Nix reads
+  straight from there. See `vendor/README.md` and "Provisioning" below.
 
 ## Wallpaper
 
@@ -122,25 +128,53 @@ cd ~/nc-production-nix-darwin
 sudo darwin-rebuild switch --flake .#NC-Production-Main-CG-1   # or -CG-2 / -CG-3 / NextGen-CG-1
 ```
 
-**3. Fill in the 4 `manual-local` packages.** Run
+**3. Provision the 5 `manual-local` packages.** Run
 `python3 scripts/update_packages.py list-all` to see them --
-`blackmagic-desktop-video`, `atem-software-control`,
-`dante-virtual-soundcard`, and `grandma3-onpc` all have no stable,
-fetchable URL (vendor product picker, license-gated account, or -- for
-grandMA3 -- an access-token URL tied to your session that would break the
-next time Nix re-fetches it on a new machine). So none of these are
-downloaded by `fetchurl` at all: the actual installer is checked into the
-repo at `vendor/<name>.pkg`. **The build will fail until you do this** for
-any host that needs them (all 4 hosts need the two Blackmagic packages;
-CG-2/FOH also needs DVS; CG-3/lighting needs grandMA3 onPC).
+`blackmagic-desktop-video`, `atem-software-control`, and
+`dante-virtual-soundcard` have no stable, fetchable URL at all (vendor
+product picker or license-gated account); `grandma3-onpc` has an
+access-token URL tied to your session that would break the next time Nix
+re-fetches it on a new machine; `spotify` has a real URL but is pinned on
+purpose instead of auto-tracking Spotify's unversioned rolling build. On
+top of that, every one of these turned out to be way too large for git
+(grandMA3 alone is 697MB; Blackmagic's installers run into the GBs) --
+GitHub hard-blocks pushes over 100MB and even Git LFS's free tier can't
+hold these. So none of them are fetched by Nix *or* committed to the repo:
+each one is placed by hand at a fixed absolute path (e.g.
+`/Users/Shared/nc-vendor/grandma3-onpc.pkg`) that lives outside git
+entirely. **The build will fail until you do this** for any host that
+needs them (all 4 hosts need the two Blackmagic packages; CG-2/FOH also
+needs DVS and Spotify; CG-3/lighting needs grandMA3 onPC).
 
-For each one: download it from the vendor, extract the real `.pkg` if it
-came wrapped in a `.dmg` (Blackmagic and Audinate both ship that way --
-the raw `.dmg` is gitignored on purpose, only the extracted `.pkg` gets
-committed), save it at the path named in `packages.json`'s `"localPath"`
-field, `git add` it, and set `"version"` by hand. Full walkthrough,
-including a licensing note about checking in someone else's proprietary
-installer, is in `vendor/README.md`.
+There's a provisioning helper for exactly this, built as both a CLI command
+and a flake app -- run it once per new Mac:
+
+```sh
+# after downloading/extracting the installers into some folder, e.g. vendor/:
+python3 scripts/update_packages.py provision --staging ./vendor
+# or, equivalently:
+nix run .#provision-vendor -- --staging ./vendor
+```
+
+This copies each matched installer into its real fixed path and reports
+OK / MISMATCH (wrong file for that path) / MISSING (with the vendor's
+homepage URL) for every manual-local package -- add `--status` to just
+check without copying. It exits non-zero until everything that host needs
+is in place. Full walkthrough (including which files need extracting out
+of a `.dmg`/`.zip` first, and a licensing note about handling someone
+else's software this way) is in `vendor/README.md`.
+
+If a package doesn't have a `localSha256` recorded yet (a fresh install,
+or you're intentionally bumping to a new version), run:
+
+```sh
+python3 scripts/update_packages.py pkg update <name> <version>
+```
+
+That reads the file already sitting at its fixed path and writes both
+`"version"` and `"localSha256"` into `packages.json` -- the local
+equivalent of the normal `pkg update <name> <url>` flow, just without a
+download.
 
 After the first manual install on each Mac, also run
 `pkgutil --pkgs | grep -i <vendor>` and make sure it matches `pkgId` in
@@ -169,8 +203,9 @@ Settings > Accounts > Add Account, using the Main Pro mailbox credentials.
 
 ## Managing packages
 
-`scripts/update_packages.py` has three layers: `sync` for bulk updates,
-`list-all` for a fleet-wide overview, and `pkg <add|update|info|delete|revert>`
+`scripts/update_packages.py` has four layers: `sync` for bulk updates,
+`list-all` for a fleet-wide overview, `provision` for one-time manual-local
+vendor setup (see `vendor/README.md`), and `pkg <add|update|info|delete|revert>`
 for working on one package at a time. Run `python3 scripts/update_packages.py --help`
 or `... pkg <subcommand> --help` for the full option list.
 
@@ -194,20 +229,20 @@ python3 scripts/update_packages.py sync             # check + update every packa
 python3 scripts/update_packages.py sync --dry-run    # preview without writing packages.json
 ```
 
-Most packages (ProPresenter, Microsoft Word/PowerPoint, Dropbox, Spotify,
-REAPER, Wireless Workbench, Dante Controller, Tailscale, TeamViewer,
-desktoppr) have an automatic strategy that polls the vendor's own
-update-check endpoint, downloads the new build, and rewrites
-`packages.json` with the new version/url/sha256. `sync` skips
-`"manual"`-strategy packages (currently just `klang-app`, which has a real
-URL but no feed to poll for new versions) -- those need
-`pkg update <name> <url>` each time the vendor ships an update -- and
-skips `"manual-local"` packages entirely (`blackmagic-desktop-video`,
-`atem-software-control`, `dante-virtual-soundcard`, `grandma3-onpc`),
-since those aren't fetched by URL at all (see step 3 and
-`vendor/README.md`). `list-all` shows you which is which. Review the diff
-(`git diff packages.json`) before committing -- especially for Microsoft
-Office and Wireless Workbench, whose installers make system-level changes.
+Most packages (ProPresenter, Microsoft Word/PowerPoint, Dropbox, REAPER,
+Wireless Workbench, Dante Controller, Tailscale, TeamViewer, desktoppr)
+have an automatic strategy that polls the vendor's own update-check
+endpoint, downloads the new build, and rewrites `packages.json` with the
+new version/url/sha256. `sync` skips `"manual"`-strategy packages
+(currently just `klang-app`, which has a real URL but no feed to poll for
+new versions) -- those need `pkg update <name> <url>` each time the vendor
+ships an update -- and skips `"manual-local"` packages entirely
+(`blackmagic-desktop-video`, `atem-software-control`,
+`dante-virtual-soundcard`, `grandma3-onpc`, `spotify`), since those aren't
+fetched by URL at all (see step 3 and `vendor/README.md`). `list-all`
+shows you which is which. Review the diff (`git diff packages.json`)
+before committing -- especially for Microsoft Office and Wireless
+Workbench, whose installers make system-level changes.
 
 ### One package at a time
 

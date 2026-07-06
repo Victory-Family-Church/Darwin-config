@@ -4,10 +4,15 @@ __pycache__/
 result
 result-*
 
-# Raw vendor .dmg downloads never belong in git -- for manual-local
-# packages (see vendor/README.md) extract the real installer (.pkg/.app)
-# out of the .dmg first and only commit that. This also stops someone's
-# browser download from accidentally landing in the repo and getting
-# staged by `git add -A`.
-*.dmg
-*.pkg
+# vendor/ is a local staging area only, never part of the git repo -- see
+# vendor/README.md. Every manual-local package (grandMA3 onPC, Blackmagic
+# Desktop Video/ATEM Software Control, Dante Virtual Soundcard, Spotify)
+# turned out to be a multi-hundred-MB (or multi-GB) installer, way past
+# GitHub's 100MB push limit and past what Git LFS's free tier can hold
+# comfortably -- so none of it gets committed, ever. Installers get placed
+# by hand (or via `scripts/update_packages.py provision` / `nix run
+# .#provision-vendor`) at the fixed absolute paths named in packages.json's
+# "localPath" fields instead (e.g. /Users/Shared/nc-vendor/<name>), which
+# live outside this directory entirely.
+vendor/*
+!vendor/README.md

@@ -1,6 +1,5 @@
 {
   "_comment": "Single source of truth for every non-nixpkgs macOS app installed on the NC production Macs. Consumed by overlays/production-apps.nix (builtins.fromJSON) and kept up to date by scripts/update_packages.py. Do not hand-edit version/url/sha256 for 'auto' packages -- run the script instead.",
-
   "packages": [
     {
       "name": "propresenter",
@@ -10,7 +9,9 @@
       "url": "https://renewedvision.com/downloads/propresenter/mac/ProPresenter_21.4_352583705.zip",
       "sha256": "a428409c5a59c0e1f0ced0d8788d521c75672fadd50ec15e20992a1fffbd4b9d",
       "homepage": "https://renewedvision.com/propresenter/",
-      "update": { "strategy": "propresenter" }
+      "update": {
+        "strategy": "propresenter"
+      }
     },
     {
       "name": "microsoft-word",
@@ -20,7 +21,11 @@
       "url": "https://res.public.onecdn.static.microsoft/mro1cdnstorage/C1297A47-86C4-4C1F-97FA-950631F94777/MacAutoupdate/Microsoft_Word_16.110.26062818_Installer.pkg",
       "sha256": "c7836b4b3f9de8e1ca4ad76b8f2807fe39031406944fd5fde6d1568d0d5de2d8",
       "homepage": "https://www.microsoft.com/en-US/microsoft-365/word",
-      "update": { "strategy": "ms_office_fwlink", "linkid": "525134", "filenamePrefix": "Microsoft_Word_" }
+      "update": {
+        "strategy": "ms_office_fwlink",
+        "linkid": "525134",
+        "filenamePrefix": "Microsoft_Word_"
+      }
     },
     {
       "name": "microsoft-powerpoint",
@@ -30,7 +35,11 @@
       "url": "https://res.public.onecdn.static.microsoft/mro1cdnstorage/C1297A47-86C4-4C1F-97FA-950631F94777/MacAutoupdate/Microsoft_PowerPoint_16.110.26062818_Installer.pkg",
       "sha256": "170c3735400237cae5cc3afd6476b194717458a799b8461d22554389b918dfc0",
       "homepage": "https://www.microsoft.com/en-US/microsoft-365/powerpoint",
-      "update": { "strategy": "ms_office_fwlink", "linkid": "525136", "filenamePrefix": "Microsoft_PowerPoint_" }
+      "update": {
+        "strategy": "ms_office_fwlink",
+        "linkid": "525136",
+        "filenamePrefix": "Microsoft_PowerPoint_"
+      }
     },
     {
       "name": "dropbox",
@@ -40,18 +49,22 @@
       "url": "https://edge.dropboxstatic.com/dbx-releng/client/Dropbox%20258.4.3749.arm64.dmg",
       "sha256": "ea96c12c0a0a7ea37070e5a69d92d415945bc490beaf43f348e33384efc6f0eb",
       "homepage": "https://www.dropbox.com/",
-      "update": { "strategy": "dropbox" }
+      "update": {
+        "strategy": "dropbox"
+      }
     },
     {
       "name": "spotify",
       "kind": "dmg",
+      "kindDetail": "external",
       "appName": "Spotify.app",
-      "version": "1.2.90.451",
-      "url": "https://download.scdn.co/SpotifyARM64.dmg",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000",
+      "version": "REPLACE_ME",
+      "localPath": "/Users/Shared/nc-vendor/spotify.dmg",
       "homepage": "https://www.spotify.com/",
-      "update": { "strategy": "spotify" },
-      "note": "Spotify ships an unversioned rolling download with no vendor-published hash (Homebrew marks it sha256 :no_check). The updater downloads the current build and hashes it directly; version stays best-effort."
+      "note": "manual-local, kindDetail external: never committed to git at all (see vendor/README.md) -- placed by hand at this fixed absolute path on each Mac during initial provisioning, e.g. via `python3 scripts/update_packages.py provision --staging <dir>`. Originally pinned because Spotify's real download (download.scdn.co) is an unversioned rolling build with no vendor-published hash -- this way it's always the same known-good build instead of whatever's currently live. Does NOT need pkg-extraction like the Blackmagic/Audinate entries -- the dmg already contains Spotify.app directly. After placing the file, run: python3 scripts/update_packages.py pkg update spotify <version> -- that computes localSha256 for you.",
+      "update": {
+        "strategy": "manual-local"
+      }
     },
     {
       "name": "reaper",
@@ -61,7 +74,9 @@
       "url": "https://dlcf.reaper.fm/7.x/reaper776_universal.dmg",
       "sha256": "ee518c4915dac12f3f21208f2e3525426c6a5bfa50cb7896be233ed9f67a2d27",
       "homepage": "https://www.reaper.fm/",
-      "update": { "strategy": "reaper" }
+      "update": {
+        "strategy": "reaper"
+      }
     },
     {
       "name": "wireless-workbench",
@@ -71,7 +86,9 @@
       "url": "https://content-files.shure.com/Software/wireless-workbench/7-8-1/Wireless-Workbench-macOS-7.8.1.56.pkg",
       "sha256": "d543614acf0b8a9293dae4859f8ccd73f7eace9e92c8d34ba7ab1ab6353959fe",
       "homepage": "https://www.shure.com/en-US/products/software/wwb?variant=WWB",
-      "update": { "strategy": "wireless_workbench" }
+      "update": {
+        "strategy": "wireless_workbench"
+      }
     },
     {
       "name": "dante-controller",
@@ -83,7 +100,9 @@
       "homepage": "https://www.getdante.com/products/software-essentials/dante-controller/",
       "note": "Upstream ships this as a .dmg containing DanteController.pkg, not a bare .pkg -- see kind override handling in lib/mac-apps.nix (dmgContainsPkg).",
       "kindDetail": "dmgContainsPkg",
-      "update": { "strategy": "dante_controller" }
+      "update": {
+        "strategy": "dante_controller"
+      }
     },
     {
       "name": "tailscale",
@@ -93,7 +112,11 @@
       "url": "https://pkgs.tailscale.com/stable/Tailscale-1.98.8-macos.pkg",
       "sha256": "140090acbc9911967bff294572656f3b367c395be85e8427ee2249d412279864",
       "homepage": "https://tailscale.com/",
-      "update": { "strategy": "sparkle_appcast", "appcastUrl": "https://pkgs.tailscale.com/stable/appcast.xml", "urlTemplate": "https://pkgs.tailscale.com/stable/Tailscale-{version}-macos.pkg" }
+      "update": {
+        "strategy": "sparkle_appcast",
+        "appcastUrl": "https://pkgs.tailscale.com/stable/appcast.xml",
+        "urlTemplate": "https://pkgs.tailscale.com/stable/Tailscale-{version}-macos.pkg"
+      }
     },
     {
       "name": "teamviewer",
@@ -103,40 +126,48 @@
       "url": "https://dl.teamviewer.com/download/version_15x/update/15.79.4/TeamViewer.pkg",
       "sha256": "beff41a4941da37479bc8c7b6fed0e8a4fee08eb7773f1c868f7af9e063f16ab",
       "homepage": "https://www.teamviewer.com/",
-      "update": { "strategy": "teamviewer" }
+      "update": {
+        "strategy": "teamviewer"
+      }
     },
     {
       "name": "blackmagic-desktop-video",
       "kind": "pkg",
-      "kindDetail": "local",
+      "kindDetail": "external",
       "pkgId": "com.blackmagic-design.DesktopVideo",
       "version": "REPLACE_ME",
-      "localPath": "vendor/blackmagic-desktop-video.pkg",
+      "localPath": "/Users/Shared/nc-vendor/blackmagic-desktop-video.pkg",
       "homepage": "https://www.blackmagicdesign.com/support/family/capture-and-playback",
-      "note": "Blackmagic's download portal is a JS product picker with no stable versioned URL to poll, so this is checked into the repo like grandma3-onpc rather than fetched. Blackmagic typically ships this as a .dmg containing the real installer .pkg -- extract that .pkg (e.g. `undmg` locally, or just mount the dmg in Finder) and save *only the .pkg* at vendor/blackmagic-desktop-video.pkg; the raw .dmg is gitignored on purpose so it never gets committed. See vendor/README.md.",
-      "update": { "strategy": "manual-local" }
+      "note": "manual-local, kindDetail external: this installer is ~700MB+ once extracted -- nowhere near GitHub's 100MB push limit even with Git LFS's free tier -- so it's never committed at all (see vendor/README.md), just placed by hand at this fixed absolute path on each Mac. Blackmagic ships this as a .dmg (or a .zip containing a .dmg) wrapping the real installer .pkg -- extract just the .pkg and place it here, e.g. via `python3 scripts/update_packages.py provision --staging <dir>` after doing the dmg extraction yourself. Then run: python3 scripts/update_packages.py pkg update blackmagic-desktop-video <version>.",
+      "update": {
+        "strategy": "manual-local"
+      }
     },
     {
       "name": "atem-software-control",
       "kind": "pkg",
-      "kindDetail": "local",
+      "kindDetail": "external",
       "pkgId": "com.blackmagic-design.ATEMSoftwareControl",
       "version": "REPLACE_ME",
-      "localPath": "vendor/atem-software-control.pkg",
+      "localPath": "/Users/Shared/nc-vendor/atem-software-control.pkg",
       "homepage": "https://www.blackmagicdesign.com/support/family/atem-live-production-switchers",
-      "note": "Same situation as blackmagic-desktop-video -- part of the 'Blackmagic ATEM Switchers' installer suite, checked into the repo instead of fetched. Extract the .pkg out of whatever .dmg Blackmagic ships and save it at vendor/atem-software-control.pkg (the raw .dmg is gitignored). See vendor/README.md.",
-      "update": { "strategy": "manual-local" }
+      "note": "manual-local, kindDetail external: same situation as blackmagic-desktop-video, if anything worse -- the 'Blackmagic ATEM Switchers' installer suite download is multiple GB. Never committed to git; placed by hand at this fixed path. Extract the .pkg out of whatever .dmg Blackmagic ships, place it here, then run: python3 scripts/update_packages.py pkg update atem-software-control <version>.",
+      "update": {
+        "strategy": "manual-local"
+      }
     },
     {
       "name": "dante-virtual-soundcard",
       "kind": "pkg",
-      "kindDetail": "local",
+      "kindDetail": "external",
       "pkgId": "com.audinate.dante.pkg.DanteVirtualSoundcard",
       "version": "REPLACE_ME",
-      "localPath": "vendor/dante-virtual-soundcard.pkg",
+      "localPath": "/Users/Shared/nc-vendor/dante-virtual-soundcard.pkg",
       "homepage": "https://www.getdante.com/products/software-essentials/dante-virtual-soundcard/",
-      "note": "Dante Virtual Soundcard requires a purchased license tied to an Audinate account, so there is no public direct-download URL -- checked into the repo instead of fetched, same as dante-controller's dmg-wraps-a-pkg situation but done by hand. Extract the .pkg out of the .dmg Audinate ships and save it at vendor/dante-virtual-soundcard.pkg (the raw .dmg is gitignored). See vendor/README.md.",
-      "update": { "strategy": "manual-local" }
+      "note": "manual-local, kindDetail external: Dante Virtual Soundcard requires a purchased license tied to an Audinate account, so there is no public direct-download URL -- never committed to git (see vendor/README.md), placed by hand at this fixed path. Extract the .pkg out of the .dmg Audinate ships, place it here, then run: python3 scripts/update_packages.py pkg update dante-virtual-soundcard <version>.",
+      "update": {
+        "strategy": "manual-local"
+      }
     },
     {
       "name": "klang-app",
@@ -148,18 +179,23 @@
       "sha256": "3394d30d0708c38b33419dbee6c001a84b45e803af23938be606f02463b4332e",
       "homepage": "https://www.klang.com/klangapp-for-mac/",
       "note": "Corrected from an earlier 'klang-fabrik' placeholder: the actual product for in-ear monitoring control is KLANG:app (not Klang:fabrik), and unlike grandMA3/Blackmagic/DVS it turns out to have a plain, stable wp-content download URL -- no account/token gate -- so this is a normal fetchurl-based entry, not a manual/local one. It's also wrapped two layers deep (.zip > .dmg > .app), handled by kindDetail zipContainsDmg / lib/mac-apps.nix's mkAppFromZippedDmg. appName is my best guess at the exact bundle name from KLANG's own branding -- if the real folder name inside the dmg differs, the build fails loudly with an `ls -la` of what it actually found, so it's self-correcting on the first `darwin-rebuild build`.",
-      "update": { "strategy": "manual" }
+      "update": {
+        "strategy": "manual"
+      }
     },
     {
       "name": "grandma3-onpc",
       "kind": "pkg",
-      "kindDetail": "local",
+      "kindDetail": "external",
       "pkgId": "com.malighting.grandma3onpc",
-      "version": "REPLACE_ME",
-      "localPath": "vendor/grandma3-onpc.pkg",
+      "version": "2.4.2.2",
+      "localPath": "/Users/Shared/nc-vendor/grandma3-onpc.pkg",
       "homepage": "https://www.malighting.com/downloads/products/grandma3/",
-      "note": "MA Lighting gates grandMA3 onPC downloads behind an access-token URL tied to your MA account session, not a stable public link -- storing that URL in packages.json would break the next time Nix needs to re-fetch it (new machine, `nix-collect-garbage`, etc), since the token will have expired by then. So this one skips fetchurl entirely: download the installer once yourself, save it at vendor/grandma3-onpc.pkg, `git add` it (flakes only see git-tracked files), and set \"version\" here to match. Nix then reads it straight out of the repo -- no re-download, ever, and no token to expire. See vendor/README.md, including the licensing/redistribution caveat about checking in someone else's installer. pkgId above is a guess -- after the first manual install, run `pkgutil --pkgs | grep -i grandma` (or `malighting`) on the Mac and fix pkgId here if it doesn't match, otherwise modules/mac-app-activation.nix's install-once check never considers it already installed. If MA actually ships this as a .dmg/.app instead of a .pkg, change \"kind\" to \"dmg\" and add an \"appName\" field instead of pkgId.",
-      "update": { "strategy": "manual-local" }
+      "note": "manual-local, kindDetail external: MA Lighting gates grandMA3 onPC downloads behind an access-token URL tied to your MA account session (would break on re-fetch), and at ~700MB it's also well over GitHub's 100MB push limit anyway -- never committed to git (see vendor/README.md), placed by hand at this fixed absolute path on each Mac instead, e.g. via `python3 scripts/update_packages.py provision --staging <dir>`. pkgId above is a guess -- after the first manual install, run `pkgutil --pkgs | grep -i grandma` (or `malighting`) on the Mac and fix pkgId here if it doesn't match, otherwise modules/mac-app-activation.nix's install-once check never considers it already installed.",
+      "update": {
+        "strategy": "manual-local"
+      },
+      "localSha256": "0f46d8adccefbac3c97af2768ed27eaef9e4b9692ea9048036541952c90fbfde"
     },
     {
       "name": "desktoppr",
@@ -170,7 +206,11 @@
       "sha256": "1cfb67d7023bc6bc7b1e3c8ccf5c891a1bad22876df77f3fbc77d27877cc7b9d",
       "homepage": "https://github.com/scriptingosx/desktoppr",
       "note": "CLI tool that sets the desktop picture reliably from a LaunchAgent (osascript/System Events routinely no-ops when run from a non-interactive activation script). Installs to /usr/local/bin/desktoppr. Used by modules/wallpaper.nix.",
-      "update": { "strategy": "github_release", "repo": "scriptingosx/desktoppr", "assetPattern": "\\.pkg$" }
+      "update": {
+        "strategy": "github_release",
+        "repo": "scriptingosx/desktoppr",
+        "assetPattern": "\\.pkg$"
+      }
     }
   ]
 }

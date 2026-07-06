@@ -107,6 +107,47 @@ rec {
       meta.platforms = pkgs.lib.platforms.darwin;
     };
 
+  # Same as mkAppFromArchive, but for a .dmg/.zip that's checked into the
+  # repo (kindDetail "local") instead of fetched by URL -- `src` is a plain
+  # local path, so there's no fetchurl/sha256 involved at all. Integrity
+  # instead comes from git itself (the bytes are whatever's in the commit),
+  # optionally cross-checked against packages.json's "localSha256" by the
+  # overlay before this ever runs.
+  mkAppFromLocalArchive = pkgs:
+    { pname
+    , version
+    , src
+    , appName
+    , kind # "dmg" | "zip"
+    }:
+    let
+      unpackTool =
+        if kind == "dmg" then pkgs.undmg
+        else if kind == "zip" then pkgs.unzip
+        else throw "mkAppFromLocalArchive: unsupported kind '${kind}' for ${pname} (expected 'dmg' or 'zip')";
+    in
+    pkgs.stdenvNoCC.mkDerivation {
+      inherit pname version src;
+      nativeBuildInputs = [ unpackTool ];
+      sourceRoot = ".";
+      dontConfigure = true;
+      dontBuild = true;
+
+      installPhase = ''
+        runHook preInstall
+        mkdir -p "$out/Applications"
+        if [ ! -d "${appName}" ]; then
+          echo "error: expected '${appName}' after unpacking ${pname}-${version} (local), but found:" >&2
+          ls -la >&2
+          exit 1
+        fi
+        cp -R "${appName}" "$out/Applications/"
+        runHook postInstall
+      '';
+
+      meta.platforms = pkgs.lib.platforms.darwin;
+    };
+
   # Some vendors (e.g. Audinate/Dante Controller) ship their .pkg installer
   # wrapped inside a .dmg. Extract the inner .pkg with undmg so activation
   # still gets handed a plain .pkg path.

@@ -1,51 +1,93 @@
 # vendor/
 
-For packages where the vendor genuinely has no stable, fetchable URL, the
-installer is checked into the repo itself instead of referenced by URL.
-That covers two different situations, currently four packages:
+**Nothing in this directory is part of the git repo** (see `.gitignore` --
+only this README is tracked). It's a local staging area you can use while
+downloading installers, nothing more.
+
+Five packages can't be fetched by `fetchurl` at build time, for two
+different reasons:
 
 - **Access-token-gated downloads.** `grandma3-onpc`: the download link is
-  tied to your MA Lighting account session and will expire or stop working
-  the moment Nix tries to re-fetch it later, on a new machine, or after
-  `nix-collect-garbage`.
-- **No public URL at all** (account/license-gated portal, no direct link
-  to poll): `blackmagic-desktop-video`, `atem-software-control`,
+  tied to your MA Lighting account session and will expire or stop
+  working the moment Nix tries to re-fetch it later, on a new machine, or
+  after `nix-collect-garbage`.
+- **No public URL at all** (account/license-gated portal): `atem-software-control`,
   `dante-virtual-soundcard`.
+- **Deliberately pinned** even though a public URL exists: `spotify`
+  (Spotify's real download is an unversioned rolling build with no
+  vendor-published hash, so auto-updating it could quietly ship a
+  different build than last time with nothing to diff).
 
-`overlays/production-apps.nix` reads `packages.json` entries with
-`"kindDetail": "local"` and points straight at `vendor/<localPath>` as a
-plain Nix path, so it never needs the network at build time.
+We initially tried checking these straight into git. That failed almost
+immediately: `grandma3-onpc.pkg` alone is **697MB**, Blackmagic's
+installers extract out to **hundreds of MB to multiple GB**. GitHub
+hard-blocks any single file over 100MB without Git LFS, and even LFS's
+free tier (1GB total) can't hold one of these, let alone all of them. So
+instead, `packages.json` gives each of these a `"kindDetail": "external"`
+and a fixed **absolute** `"localPath"` (e.g.
+`/Users/Shared/nc-vendor/grandma3-onpc.pkg`) that lives completely outside
+this repo. `overlays/production-apps.nix` reads straight from that path at
+build time -- nothing is ever fetched or committed for these five.
 
-## Adding a package here
+If `packages.json` also has a `"localSha256"` for one of these, the
+overlay cross-checks the file at that path against it and **fails the
+build loudly** if they don't match -- catching the case where the wrong
+file (or no file) is sitting there.
 
-1. Log in and download the installer from the vendor's site.
-2. **If it's a .dmg, extract the real installer first.** Blackmagic and
-   Audinate both ship their macOS installers as a `.dmg` wrapping the
-   actual `.pkg` -- mount it in Finder (or `undmg` it) and pull out just
-   the `.pkg`. Only the extracted `.pkg`/`.app` goes in this directory; the
-   raw `.dmg` is gitignored (`*.dmg`) on purpose so it can't get committed
-   by accident, even via `git add -A`.
-3. Save it at the path named in that package's `"localPath"` field in
-   `packages.json` (e.g. `vendor/blackmagic-desktop-video.pkg`).
-4. **`git add` it explicitly.** Same rule as `assets/logo.png` -- Nix
-   flakes only see git-tracked files, even before you commit, so an
-   untracked file here is invisible to `darwin-rebuild`.
-5. Update that package's `"version"` in `packages.json` to match what you
-   downloaded.
-6. Run `darwin-rebuild build --flake .#<host>` to confirm it resolves.
-7. After the first real install on the target Mac, run
-   `pkgutil --pkgs | grep -i <vendor>` and make sure it matches `pkgId` in
-   `packages.json` -- the ones here are best-guess placeholders. If they're
-   wrong, `modules/mac-app-activation.nix`'s "already installed?" check
-   never matches and it reinstalls on every `darwin-rebuild switch`.
+## Provisioning a new Mac
 
-## Before you commit: licensing
+This only matters once per machine, when you're setting it up for the
+first time (or replacing a wiped one) -- after that the files just sit at
+their fixed paths and every future `darwin-rebuild switch` reads them
+as-is.
 
-This directory holds actual copies of other vendors' commercial
-installers, not something Nix fetched on demand. That's fine for internal,
-private use the way you're already licensed to run them -- but if this
-repo is public (or ever becomes public), redistributing a vendor's
-proprietary installer may not be allowed under their terms, separate from
-whatever license you picked for your own Nix/Python code. Worth a quick
-check against Blackmagic's, Audinate's, and MA Lighting's EULAs before
-pushing this directory to a public remote.
+1. Download each installer this host's role needs from the vendor (see
+   each package's `"homepage"` in `packages.json`, or run
+   `python3 scripts/update_packages.py list-all`).
+2. **If it's a .dmg/.zip wrapping a .pkg, extract the real installer
+   first.** Blackmagic and Audinate both ship that way -- mount it in
+   Finder (or `undmg`/`unzip` it) and pull out just the `.pkg`. Spotify is
+   the one exception: its `.dmg` already contains `Spotify.app` directly,
+   nothing to unwrap.
+3. Drop the extracted files into a staging folder (this `vendor/`
+   directory works fine, or anywhere else -- it's never read directly by
+   Nix), named to match each package's `"localPath"` basename (e.g.
+   `grandma3-onpc.pkg`, `blackmagic-desktop-video.pkg`, `spotify.dmg`).
+4. Run the provisioning helper, either via the CLI or as a flake app:
+   ```sh
+   python3 scripts/update_packages.py provision --staging ./vendor
+   # or, without even needing a checkout of the script on PATH:
+   nix run .#provision-vendor -- --staging ./vendor
+   ```
+   This copies each matched file from staging into its real fixed path
+   (creating directories as needed) and reports **OK** / **MISMATCH**
+   (wrong file for that path -- compares against `packages.json`'s
+   `localSha256`) / **MISSING** (not found in staging, with the vendor's
+   homepage URL to go grab it from) for every manual-local package. Add
+   `--status` to just check without copying anything. Exits non-zero if
+   anything's not ready yet, so it can gate a setup script.
+5. If a package doesn't have a `localSha256` recorded yet (a fresh
+   `pkg add`, or you're intentionally updating to a new version), run:
+   ```sh
+   python3 scripts/update_packages.py pkg update <name> <version>
+   ```
+   This reads the file at its fixed path and writes both `"version"` and
+   `"localSha256"` into `packages.json` -- the local equivalent of the
+   normal `pkg update <name> <url>` flow, just without a download.
+6. Run `darwin-rebuild build --flake .#<host>` to confirm it all resolves.
+7. For the `.pkg`-based ones, after the first real install on the target
+   Mac, run `pkgutil --pkgs | grep -i <vendor>` and make sure it matches
+   `pkgId` in `packages.json` -- the ones there are best-guess placeholders.
+   If they're wrong, `modules/mac-app-activation.nix`'s "already installed?"
+   check never matches and it reinstalls on every `darwin-rebuild switch`.
+
+## Licensing
+
+These are actual copies of other vendors' software, not something Nix
+fetched on demand. Keeping them entirely out of git (rather than, say,
+Git LFS) also sidesteps a licensing question that would otherwise come up
+the moment this repo is pushed anywhere -- redistributing a vendor's
+proprietary installer, even privately, may not be allowed under their
+terms. Worth knowing regardless: check Blackmagic's, Audinate's, MA
+Lighting's, and Spotify's terms before you copy these installers anywhere
+beyond the Macs you're licensed to run them on.
